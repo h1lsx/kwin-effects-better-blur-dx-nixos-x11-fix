@@ -1275,6 +1275,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
         
         QMatrix4x4 projectionMatrix = viewport.projectionMatrix();
         projectionMatrix.translate(scaledBackgroundRect.x(), scaledBackgroundRect.y());
+        projectionMatrix.ortho(backgroundRect);
 
         const auto &read = renderInfo.blurCacheFramebuffer->colorAttachment();
 
