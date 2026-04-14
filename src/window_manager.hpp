@@ -75,10 +75,6 @@ public Q_SLOT:
     void slotWindowAdded(KWin::EffectWindow *w);
     void slotWindowDeleted(KWin::EffectWindow *w);
 
-signals:
-    void windowWantsBlurRegionUpdate(KWin::EffectWindow *w) const;
-    void windowInvalidatedBlurCache(KWin::EffectWindow *w) const;
-
 public:
     explicit WindowManager(KWin::BlurEffect *effect);
 

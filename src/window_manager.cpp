@@ -1,5 +1,6 @@
 #include "window_manager.hpp"
 
+#include "blur.h"
 #include "blurconfig.h"
 #include "kwin_version.hpp"
 #include "utils.h"
@@ -239,11 +240,16 @@ bool BBDX::WindowManager::shouldForceBlurWindowClass(const KWin::EffectWindow *w
 }
 
 void BBDX::WindowManager::triggerBlurRegionUpdate(KWin::EffectWindow *w) const {
-    emit windowWantsBlurRegionUpdate(w);
+    m_effect->updateBlurRegion(w);
 }
 
 void BBDX::WindowManager::invalidateBlurCache(KWin::EffectWindow *w) const {
-    emit windowWantsBlurRegionUpdate(w);
+    if (auto it = m_effect->m_windows.find(w); it != m_effect->m_windows.end()) {
+        KWin::BlurEffectData &blurInfo = it->second;
+        for (auto &[_, renderInfo] : blurInfo.render) {
+            renderInfo.cache.valid = false;
+        }
+    }
 }
 
 void BBDX::WindowManager::setWindowIsTransformed(const KWin::EffectWindow *w, bool toggle) const {

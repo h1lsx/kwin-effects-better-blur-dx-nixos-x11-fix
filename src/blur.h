@@ -118,8 +118,6 @@ public:
 public Q_SLOTS:
     void slotWindowAdded(KWin::EffectWindow *w);
     void slotWindowDeleted(KWin::EffectWindow *w);
-    void slotWindowWantsBlurRegionUpdate(EffectWindow *w);
-    void slotWindowInvalidatedBlurCache(EffectWindow *w);
 #if defined(BETTERBLUR_X11)
     void slotScreenRemoved(KWin::Output *view);
 #else
@@ -237,9 +235,12 @@ private:
     BlurSettings m_settings;
     BBDX::RefractionPass m_refractionPass{};
     BBDX::RoundedCornersPass m_roundedCornersPass{};
-    std::unique_ptr<BBDX::WindowManager> m_windowManager{};
     BBDX::BlurCache m_blurCache{};
     bool m_forceContrastParams{false};
+
+    std::unique_ptr<BBDX::WindowManager> m_windowManager{};
+    friend void BBDX::WindowManager::triggerBlurRegionUpdate(EffectWindow *w) const;
+    friend void BBDX::WindowManager::invalidateBlurCache(EffectWindow *w) const;
 };
 
 inline bool BlurEffect::provides(Effect::Feature feature)

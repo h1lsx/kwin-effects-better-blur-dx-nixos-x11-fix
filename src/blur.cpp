@@ -243,8 +243,6 @@ BlurEffect::BlurEffect()
     connect(effects, &EffectsHandler::xcbConnectionChanged, this, [this]() {
         net_wm_blur_region = effects->announceSupportProperty(s_blurAtomName, this);
     });
-    connect(m_windowManager.get(), &BBDX::WindowManager::windowWantsBlurRegionUpdate, this, &BlurEffect::slotWindowWantsBlurRegionUpdate);
-    connect(m_windowManager.get(), &BBDX::WindowManager::windowInvalidatedBlurCache, this, &BlurEffect::slotWindowInvalidatedBlurCache);
 
     // Fetch the blur regions for all windows
     const auto stackingOrder = effects->stackingOrder();
@@ -401,7 +399,9 @@ void BlurEffect::updateBlurRegion(EffectWindow *w)
         frame = decorationBlurRegion(w);
     }
 
+    // BBDX:
     m_windowManager->getFinalBlurRegion(w, content, frame);
+    m_windowManager->invalidateBlurCache(w);
 
     if (content.has_value() || frame.has_value()) {
         BlurEffectData &data = m_windows[w];
@@ -429,9 +429,6 @@ void BlurEffect::updateBlurRegion(EffectWindow *w)
             m_windows.erase(it);
         }
     }
-
-    // BBDX: invalidate cache on update as well
-    slotWindowInvalidatedBlurCache(w);
 }
 
 void BlurEffect::slotWindowAdded(EffectWindow *w)
