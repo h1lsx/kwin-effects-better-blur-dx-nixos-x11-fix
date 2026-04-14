@@ -24,6 +24,7 @@
 
 namespace KWin {
     class BorderRadius;
+    class BlurEffect;
 }
 
 namespace BBDX
@@ -39,6 +40,9 @@ public:
     };
 
 private:
+    // pointer to the owning BlurEffect instance
+    KWin::BlurEffect *m_effect;
+
     // managed windows
     std::unordered_map<const KWin::EffectWindow *, std::unique_ptr<BBDX::Window>> m_windows{};
 
@@ -76,12 +80,7 @@ signals:
     void windowInvalidatedBlurCache(KWin::EffectWindow *w) const;
 
 public:
-    explicit WindowManager();
-
-    /**
-     * access to singleton
-     */
-    static const WindowManager *instance();
+    explicit WindowManager(KWin::BlurEffect *effect);
 
     /**
      * reconfigure from BlurConfig

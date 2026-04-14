@@ -186,6 +186,8 @@ BlurEffect::BlurEffect()
         m_noisePass.noiseTextureSizeLocation = m_noisePass.shader->uniformLocation("noiseTextureSize");
     }
 
+    m_windowManager = std::make_unique<BBDX::WindowManager>(this);
+
     if (!m_refractionPass.ready())
         return;
 
@@ -241,8 +243,8 @@ BlurEffect::BlurEffect()
     connect(effects, &EffectsHandler::xcbConnectionChanged, this, [this]() {
         net_wm_blur_region = effects->announceSupportProperty(s_blurAtomName, this);
     });
-    connect(&m_windowManager, &BBDX::WindowManager::windowWantsBlurRegionUpdate, this, &BlurEffect::slotWindowWantsBlurRegionUpdate);
-    connect(&m_windowManager, &BBDX::WindowManager::windowInvalidatedBlurCache, this, &BlurEffect::slotWindowInvalidatedBlurCache);
+    connect(m_windowManager.get(), &BBDX::WindowManager::windowWantsBlurRegionUpdate, this, &BlurEffect::slotWindowWantsBlurRegionUpdate);
+    connect(m_windowManager.get(), &BBDX::WindowManager::windowInvalidatedBlurCache, this, &BlurEffect::slotWindowInvalidatedBlurCache);
 
     // Fetch the blur regions for all windows
     const auto stackingOrder = effects->stackingOrder();
@@ -328,7 +330,7 @@ void BlurEffect::reconfigure(ReconfigureFlags flags)
     Q_UNUSED(flags);
     m_settings.read();
     m_refractionPass.reconfigure();
-    m_windowManager.reconfigure();
+    m_windowManager->reconfigure();
     m_forceContrastParams = BlurConfig::forceContrastParams();
 
     int blurStrength = m_settings.general.blurStrength;
@@ -399,7 +401,7 @@ void BlurEffect::updateBlurRegion(EffectWindow *w)
         frame = decorationBlurRegion(w);
     }
 
-    m_windowManager.getFinalBlurRegion(w, content, frame);
+    m_windowManager->getFinalBlurRegion(w, content, frame);
 
     if (content.has_value() || frame.has_value()) {
         BlurEffectData &data = m_windows[w];
@@ -708,14 +710,14 @@ void BlurEffect::prePaintWindow(RenderView *view, EffectWindow *w, WindowPrePain
     // BBDX change:
     // blurred windows should be painted translucent
     // to avoid issues with repainting
-    if (m_windowManager.windowIsBlurred(w)) {
+    if (m_windowManager->windowIsBlurred(w)) {
         data.setTranslucent();
     }
 
     // BBDX:
     // invalidate during prePaintWindow so actual paint
     // should have the info ready
-    m_windowManager.invalidateBlurCacheAbove(w);
+    m_windowManager->invalidateBlurCacheAbove(w);
 }
 
 bool BlurEffect::shouldBlur(const EffectWindow *w, int mask, const WindowPaintData &data) const
@@ -732,14 +734,14 @@ bool BlurEffect::shouldBlur(const EffectWindow *w, int mask, const WindowPaintDa
     bool translated = data.xTranslation() || data.yTranslation();
 
     if ((scaled || (translated || (mask & PAINT_WINDOW_TRANSFORMED))) && !w->data(WindowForceBlurRole).toBool()) {
-        m_windowManager.setWindowIsTransformed(w, true);
-        if (m_windowManager.windowShouldBlurWhileTransformed(w)) {
+        m_windowManager->setWindowIsTransformed(w, true);
+        if (m_windowManager->windowShouldBlurWhileTransformed(w)) {
             return true;
         }
 
         return false;
     }
-    m_windowManager.setWindowIsTransformed(w, false);
+    m_windowManager->setWindowIsTransformed(w, false);
 
     return true;
 }
@@ -825,7 +827,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
 #else
     const QRect deviceBackgroundRect = snapToPixelGrid(viewport.mapToDeviceCoordinates(backgroundRect));
 #endif
-    const auto opacity = m_windowManager.getEffectiveBlurOpacity(w, data);
+    const auto opacity = m_windowManager->getEffectiveBlurOpacity(w, data);
 
     // Get the effective shape that will be actually blurred. It's possible that all of it will be clipped.
     QList<RectF> effectiveShape;
@@ -1223,7 +1225,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
         glDisable(GL_BLEND);
     }
 
-    if (const BorderRadius cornerRadius = m_windowManager.getEffectiveBorderRadius(w); !cornerRadius.isNull()) {
+    if (const BorderRadius cornerRadius = m_windowManager->getEffectiveBorderRadius(w); !cornerRadius.isNull()) {
         m_roundedCornersPass.apply(cornerRadius, viewport, scaledBackgroundRect, renderInfo, w, data, vbo, m_blurCache);
     }
 

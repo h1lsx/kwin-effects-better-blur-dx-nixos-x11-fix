@@ -14,6 +14,7 @@
 #include "settings.h"
 #include "window_manager.hpp"
 
+#include <memory>
 #include <opengl/glframebuffer.h>
 
 #if KWIN_VERSION < KWIN_VERSION_CODE(6, 5, 80)
@@ -236,7 +237,7 @@ private:
     BlurSettings m_settings;
     BBDX::RefractionPass m_refractionPass{};
     BBDX::RoundedCornersPass m_roundedCornersPass{};
-    BBDX::WindowManager m_windowManager{};
+    std::unique_ptr<BBDX::WindowManager> m_windowManager{};
     BBDX::BlurCache m_blurCache{};
     bool m_forceContrastParams{false};
 };

@@ -30,10 +30,8 @@
 
 Q_LOGGING_CATEGORY(WINDOW_MANAGER, "kwin_effect_better_blur_dx.window_manager", QtInfoMsg)
 
-static const BBDX::WindowManager *self;
-
-BBDX::WindowManager::WindowManager() {
-    self = this;
+BBDX::WindowManager::WindowManager(KWin::BlurEffect *effect) {
+    m_effect = effect;
 
     // add existing windows
     for (const auto &window : KWin::effects->stackingOrder()) {
@@ -42,10 +40,6 @@ BBDX::WindowManager::WindowManager() {
 
     connect(KWin::effects, &KWin::EffectsHandler::windowAdded, this, &WindowManager::slotWindowAdded);
     connect(KWin::effects, &KWin::EffectsHandler::windowDeleted, this, &WindowManager::slotWindowDeleted);
-}
-
-const BBDX::WindowManager* BBDX::WindowManager::instance() {
-    return self;
 }
 
 void BBDX::WindowManager::slotWindowAdded(KWin::EffectWindow *w) {
