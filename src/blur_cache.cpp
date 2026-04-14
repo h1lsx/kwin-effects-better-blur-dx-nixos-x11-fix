@@ -12,12 +12,17 @@
 
 Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMsg)
 
+constexpr uint CACHE_HITS_LOGGED_MIN = 5;
+
 void BBDX::BlurCacheData::invalidate() {
     if (!valid) {
         return;
     }
 
-    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Cache hits before invalidation:" << hits;
+    if (hits >= CACHE_HITS_LOGGED_MIN) {
+        qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Cache hits before invalidation:" << hits;
+    }
+
     valid = false;
     hits = 0;
 }
