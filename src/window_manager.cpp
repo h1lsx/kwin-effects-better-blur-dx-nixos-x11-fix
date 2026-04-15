@@ -360,7 +360,7 @@ void BBDX::WindowManager::invalidateBlurCacheAbove(const KWin::EffectWindow *w) 
     }
 
     auto candidates = windowsByStackingOrder();
-    auto targetRegion = KWin::Region{KWin::Rect{w->frameGeometry().toRect()}};
+    auto targetRegion = KWin::Region{KWin::RectF{w->frameGeometry()}.roundedIn()};
 
     // in order invalidate caches until the entire target region is convered
     for (auto it = candidates.begin(); it != candidates.end(); it++) {
@@ -372,7 +372,7 @@ void BBDX::WindowManager::invalidateBlurCacheAbove(const KWin::EffectWindow *w) 
             continue;
         }
 
-        auto rect = kWindow->frameGeometry().toRect();
+        auto rect = KWin::RectF{kWindow->frameGeometry()}.roundedIn();
         if (targetRegion.intersects(rect)) {
             // invalidation above is rate limited for higher cache TTL
             // we'll still treat it as invalidated though
@@ -399,7 +399,7 @@ void BBDX::WindowManager::invalidateBlurCacheBelow(const KWin::EffectWindow *w) 
     }
 
     auto candidates = windowsByStackingOrder();
-    auto targetRegion = KWin::Region{KWin::Rect{w->frameGeometry().toRect()}};
+    auto targetRegion = KWin::Region{KWin::RectF{w->frameGeometry()}.roundedIn()};
 
     // in reverse invalidate caches until the entire target region is convered
     for (auto it = candidates.rbegin(); it != candidates.rend(); it++) {
@@ -411,7 +411,7 @@ void BBDX::WindowManager::invalidateBlurCacheBelow(const KWin::EffectWindow *w) 
             continue;
         }
 
-        auto rect = kWindow->frameGeometry().toRect();
+        auto rect = KWin::RectF{kWindow->frameGeometry()}.roundedIn();
         if (targetRegion.intersects(rect)) {
             if (bbdxWindow->invalidateBlurCache()) {
                 qCDebug(WINDOW_MANAGER) << w->windowClass() << "invalidated cache of"
