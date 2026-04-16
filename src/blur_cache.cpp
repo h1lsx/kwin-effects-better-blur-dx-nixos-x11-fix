@@ -229,14 +229,16 @@ void BBDX::BlurCache::drawCached(const KWin::Rect &scaledBackgroundRect, const K
     KWin::ShaderManager::instance()->popShader();
 
     // if we drew it, it has to valid, right?
-    // also bump cache hits
-    renderInfo.cache.valid = true;
-    renderInfo.cache.hits += 1;
+    if (!renderInfo.cache.valid) {
+        renderInfo.cache.valid = true;
 
-    // store current blit for next draw
-    // this is kinda ugly but there doesn't
-    // seem to be a simpler way to just deep copy a texture
-    renderInfo.cache.prevBlitTexture = KWin::GLTexture::upload(renderInfo.textures[0]->toImage());
+        // store current blit for next draw
+        // this is kinda ugly but there doesn't
+        // seem to be a simpler way to just deep copy a texture
+        renderInfo.cache.prevBlitTexture = KWin::GLTexture::upload(renderInfo.textures[0]->toImage());
+    } else {
+        renderInfo.cache.hits += 1;
+    }
 }
 
 void BBDX::BlurCache::drawToCache(const KWin::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo) const {
