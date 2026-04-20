@@ -23,29 +23,21 @@
 
 Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMsg)
 
-// For BlurCache debugging this should be 0.
-// In almost all other cases this should be higher
-// because the message is very spammy.
-// 5 seems like a sane default to still provide the metric.
-constexpr uint CACHE_HITS_LOGGED_MIN = 5;
-
 bool BBDX::BlurCacheData::invalidate(QStringView reason) {
     if (!valid) {
         return false;
     }
 
-    if (hits >= CACHE_HITS_LOGGED_MIN) {
-        QString windowClass;
-        if (w) [[likely]] {
-            windowClass = w->windowClass();
-        } else {
-            windowClass = "unknown window";
-        }
-
-        qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Cache invalidated:" << windowClass << "\n"
-                            << "Hits:"   << hits << "\n"
-                            << "Reason:" << reason;
+    QString windowClass;
+    if (w) [[likely]] {
+        windowClass = w->windowClass();
+    } else {
+        windowClass = QStringLiteral("unknown window");
     }
+
+    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Cache invalidated:" << windowClass << "\n"
+                        << "Hits:"   << hits << "\n"
+                        << "Reason:" << reason;
 
     valid = false;
     hits = 0;
