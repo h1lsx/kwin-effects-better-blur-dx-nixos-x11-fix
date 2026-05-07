@@ -11,7 +11,6 @@
 #include "kwin_version.hpp"
 #include "refraction_pass.hpp"
 #include "rounded_corners_pass.hpp"
-#include "settings.h"
 #include "window_manager.hpp"
 
 #include <memory>
@@ -234,7 +233,6 @@ private:
     static QTimer *s_contrastManagerRemoveTimer;
 
     // BBDX Mixins
-    BlurSettings m_settings;
     bool m_forceContrastParams{false};
 
     std::unique_ptr<BBDX::WindowManager> m_windowManager{};

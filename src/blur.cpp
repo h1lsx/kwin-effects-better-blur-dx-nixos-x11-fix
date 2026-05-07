@@ -332,16 +332,16 @@ void BlurEffect::initBlurStrengthValues()
 void BlurEffect::reconfigure(ReconfigureFlags flags)
 {
     Q_UNUSED(flags);
-    m_settings.read();
+    BlurConfig::self()->read();
     m_refractionPass->reconfigure();
     m_windowManager->reconfigure();
     m_forceContrastParams = BlurConfig::forceContrastParams();
 
-    int blurStrength = m_settings.general.blurStrength;
+    int blurStrength = BlurConfig::blurStrength() - 1;
     m_iterationCount = blurStrengthValues[blurStrength].iteration;
     m_offset = blurStrengthValues[blurStrength].offset;
     m_expandSize = blurOffsets[m_iterationCount - 1].expandSize;
-    m_noiseStrength = m_settings.general.noiseStrength;
+    m_noiseStrength = BlurConfig::noiseStrength();
     m_colorMatrix = colorTransformMatrix(BlurConfig::saturation() / 100.0,
                                          BlurConfig::contrast() / 100.0,
                                          BlurConfig::brightness() / 100.0);
