@@ -44,7 +44,6 @@ namespace KWin
 
 class BlurManagerInterface;
 class ContrastManagerInterface;
-class BackgroundEffectItem;
 
 struct BlurRenderData
 {
