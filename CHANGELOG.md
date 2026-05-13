@@ -1,6 +1,8 @@
 # DEV
 Things not in any tagged release yet:
 
+# 2.4.0
+
 ### Features:
 - **Blur Caching** to (hopefully) improve performance of the effect.
   This is my 3rd attempt at "making the effect less GPU hungry"
