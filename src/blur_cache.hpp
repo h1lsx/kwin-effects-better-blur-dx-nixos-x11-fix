@@ -41,6 +41,9 @@ struct BlurCacheEntry {
     // priority index, lower meaning higher priority
     uint priority{0};
 
+    // cache hits of this entry, incremented by BlurCacheLRU::select()
+    uint hits{0};
+
     /**
      * Create a new BlurCacheEntry by allocating cachedTexture and cachedFramebuffer
      * blitTexture is cloned from the provided blitFramebuffer.

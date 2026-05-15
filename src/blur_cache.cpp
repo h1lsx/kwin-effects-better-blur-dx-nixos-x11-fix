@@ -110,17 +110,18 @@ void BBDX::BlurCacheLRU::select() {
 
     auto selected = m_entries[idx].get();
 
-    m_next = 0;
-    m_valid = selected;
-
-    qCDebug(BLUR_CACHE) << "Selected BlurCacheEntry:" << idx;
-
     for (auto &entry : m_entries) {
         if (entry->priority < selected->priority) {
             entry->priority += 1;
         }
     }
+
+    qCDebug(BLUR_CACHE) << "Selected BlurCacheEntry:" << idx;
+
+    m_next = 0;
+    m_valid = selected;
     selected->priority = 0;
+    selected->hits += 1;
 }
 
 void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
@@ -139,8 +140,11 @@ void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
     while (m_entries.size() > m_max) {
         for (auto it = m_entries.begin(); it != m_entries.end(); it++) {
             if ((*it)->priority >= m_max) {
+                qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
+                                    << "Dropping old BlurCacheEntry\n"
+                                    << "Hits:" << (*it)->hits;
+
                 m_entries.erase(it);
-                qCDebug(BLUR_CACHE) << "Dropped old BlurCacheEntry";
                 break;
             }
         }
@@ -200,7 +204,7 @@ BBDX::BlurCache::BlurCache() {
 }
 
 void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
-                                           KWin::GLVertexBuffer *vbo) {
+                                       KWin::GLVertexBuffer *vbo) {
     auto &cacheData = renderInfo.cache;
 
     cacheData.lru.reset();
