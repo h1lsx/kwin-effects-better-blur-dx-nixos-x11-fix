@@ -154,11 +154,6 @@ public:
     bool ready() const { return !!m_texturePass.shader; }
 
     /**
-     * Updates the BlurCacheData buffers of the given renderInfo
-     */
-    void updateBlurCacheDataBuffers(KWin::BlurRenderData &renderInfo, const KWin::Rect &scaledBackgroundRect, GLenum textureFormat) const;
-
-    /**
      * Select a cache entry from renderInfo if a valid one exists
      */
     void selectCacheEntry(KWin::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo);
