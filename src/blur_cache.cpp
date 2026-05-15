@@ -19,6 +19,7 @@
 #endif
 
 #include <QLoggingCategory>
+#include <QVector2D>
 #include <QtNumeric>
 
 Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMsg)
@@ -56,6 +57,7 @@ BBDX::BlurCache::BlurCache() {
         m_textureComparePass.mvpMatrixLocation = m_textureComparePass.shader->uniformLocation("modelViewProjectionMatrix");
         m_textureComparePass.texUnitOldLocation = m_textureComparePass.shader->uniformLocation("texUnitOld");
         m_textureComparePass.texUnitNewLocation = m_textureComparePass.shader->uniformLocation("texUnitNew");
+        m_textureComparePass.borderIgnore = m_textureComparePass.shader->uniformLocation("borderIgnore");
     }
 
     m_texturePass.shader = KWin::ShaderManager::instance()->generateShaderFromFile(KWin::ShaderTrait::MapTexture,
@@ -159,6 +161,9 @@ void BBDX::BlurCache::maybeInvalidateCache(KWin::BlurRenderData &renderInfo,
     m_textureComparePass.shader->setUniform(m_textureComparePass.texUnitNewLocation, 1);
     glActiveTexture(GL_TEXTURE1);
     blitTexture->bind();
+
+    // pixels at window borders are fairly unreliable so ignore a slim border (1% of the texture size)
+    m_textureComparePass.shader->setUniform(m_textureComparePass.borderIgnore, 0.01);
 
     GLuint query;
     glGenQueries(1, &query);

@@ -61,6 +61,7 @@ private:
         int mvpMatrixLocation;
         int texUnitOldLocation;
         int texUnitNewLocation;
+        int borderIgnore;
     } m_textureComparePass;
 
     struct {
