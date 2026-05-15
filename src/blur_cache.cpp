@@ -83,32 +83,52 @@ void BBDX::BlurCacheLRU::reset() {
 }
 
 const BBDX::BlurCacheEntry* BBDX::BlurCacheLRU::next() {
-    // wrap and empty cases
-    if (m_next >= m_entries.size()) {
-        return nullptr;
-    }
-
     if (m_valid) {
         return nullptr;
     }
 
-    return m_entries[m_next++].get();
+    // implicitly handles empty m_entries
+    // and reaching the end
+    BBDX::BlurCacheEntry* ret{nullptr};
+    for (const auto &entry : m_entries) {
+        if (entry->priority == m_next) {
+            ret = entry.get();
+            m_next += 1;
+            break;
+        }
+    }
+
+    return ret;
 }
 
 void BBDX::BlurCacheLRU::select() {
     if (m_entries.empty()) {
-        qCCritical(BLUR_CACHE) << "BlurCacheLRU::select(): Called with no entries";
+        qCCritical(BLUR_CACHE) << BBDX::LOG_PREFIX
+                               << "BlurCacheLRU::select(): Called with no entries";
         return;
     }
 
-    size_t idx;
-    if (m_next == 0) {
-        idx = 0;
-    } else {
+    // The only time m_next is 0 is during
+    // a call to add() (and technically after reset()).
+    // Through usual iteration with next() it will always be >=1
+    size_t idx{0};
+    if (m_next > 0) {
         idx = m_next - 1;
     }
 
-    auto selected = m_entries[idx].get();
+    BBDX::BlurCacheEntry* selected{nullptr};
+    for (const auto &entry : m_entries) {
+        if (entry->priority == idx) {
+            selected = entry.get();
+            break;
+        }
+    }
+
+    if (!selected) {
+        qCCritical(BLUR_CACHE) << BBDX::LOG_PREFIX
+                               << "BlurCacheLRU::select(): Could not find entry:" << idx;
+        return;
+    }
 
     for (auto &entry : m_entries) {
         if (entry->priority < selected->priority) {
