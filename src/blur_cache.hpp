@@ -15,7 +15,6 @@
 #endif
 
 #include <memory>
-#include <optional>
 #include <vector>
 
 namespace KWin {
@@ -64,7 +63,7 @@ private:
 
     KWin::EffectWindow* m_window{nullptr};
     QString m_windowClass{"unknown unknown"};
-    pid_t m_windowPID{0};
+    pid_t m_windowPID{-1};
 
 public:
     explicit BlurCacheLRU(size_t max = 5)
