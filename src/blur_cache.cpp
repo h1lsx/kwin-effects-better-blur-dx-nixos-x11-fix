@@ -211,10 +211,10 @@ BBDX::BlurCache::BlurCache() {
 
 void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
                                        KWin::GLVertexBuffer *vbo) {
-    auto &cacheData = renderInfo.cache;
+    auto &cache = renderInfo.cache;
 
-    cacheData.lru.reset();
-    while (auto cacheEntry = cacheData.lru.next()) {
+    cache.reset();
+    while (auto cacheEntry = cache.next()) {
         KWin::GLTexture *prevBlitTexture = cacheEntry->blitTexture.get();
         KWin::GLFramebuffer *blitFramebuffer = renderInfo.framebuffers[0].get();
         KWin::GLTexture *blitTexture = blitFramebuffer->colorAttachment();
@@ -290,7 +290,7 @@ void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
         GLuint anyPixelsDifferent;
         glGetQueryObjectuiv(query, GL_QUERY_RESULT, &anyPixelsDifferent);
         if (anyPixelsDifferent == GL_FALSE) {
-            cacheData.lru.select();
+            cache.select();
         }
 
 cleanup:
@@ -356,7 +356,7 @@ void BBDX::BlurCache::drawCached(const KWin::Rect &scaledBackgroundRect, const K
     projectionMatrix.translate(scaledBackgroundRect.x(), scaledBackgroundRect.y());
 
     KWin::GLTexture* read;
-    if (const auto &cacheEntry = renderInfo.cache.lru.valid()) {
+    if (const auto &cacheEntry = renderInfo.cache.valid()) {
         read = cacheEntry->cachedTexture.get();
     } else {
         // bail if we didn't select or add a cache entry
@@ -384,7 +384,7 @@ void BBDX::BlurCache::drawCached(const KWin::Rect &scaledBackgroundRect, const K
 }
 
 void BBDX::BlurCache::drawToCache(KWin::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo) const {
-    auto cachedFramebuffer = renderInfo.cache.lru.valid()->cachedFramebuffer.get();
+    auto cachedFramebuffer = renderInfo.cache.valid()->cachedFramebuffer.get();
     KWin::GLFramebuffer::pushFramebuffer(cachedFramebuffer);
     vbo->draw(GL_TRIANGLES, 6, 6);
     KWin::GLFramebuffer::popFramebuffer();

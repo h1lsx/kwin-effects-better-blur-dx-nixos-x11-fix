@@ -270,7 +270,7 @@ void BBDX::WindowManager::invalidateBlurCache(KWin::EffectWindow *w, QStringView
     if (auto it = m_effect->m_windows.find(w); it != m_effect->m_windows.end()) {
         KWin::BlurEffectData &blurInfo = it->second;
         for (auto &[_, renderInfo] : blurInfo.render) {
-            renderInfo.cache.lru.invalidate(reason);
+            renderInfo.cache.invalidate(reason);
         }
     }
 }

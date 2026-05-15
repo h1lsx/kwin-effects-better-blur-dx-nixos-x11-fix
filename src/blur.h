@@ -51,7 +51,7 @@ struct BlurRenderData
     std::vector<std::unique_ptr<GLTexture>> textures;
     std::vector<std::unique_ptr<GLFramebuffer>> framebuffers;
 
-    BBDX::BlurCacheData cache;
+    BBDX::BlurCacheLRU cache;
 };
 
 struct BlurEffectData
