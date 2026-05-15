@@ -200,13 +200,8 @@ BBDX::BlurCache::BlurCache() {
 }
 
 void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
-                                           qreal opacity,
                                            KWin::GLVertexBuffer *vbo) {
     auto &cacheData = renderInfo.cache;
-    if (!cacheData.opacity.has_value() || !qFuzzyCompare(cacheData.opacity.value(), opacity)) {
-        cacheData.opacity = opacity;
-        cacheData.invalidate(QStringLiteral("Opacity changed"));
-    }
 
     cacheData.lru.reset();
     while (auto cacheEntry = cacheData.lru.next()) {

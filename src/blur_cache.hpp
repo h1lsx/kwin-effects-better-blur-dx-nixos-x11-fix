@@ -115,9 +115,6 @@ struct BlurCacheData {
     // cache entries
     BlurCacheLRU lru{};
 
-    // things that affect validity of the cache
-    std::optional<qreal> opacity{};
-
     // helper to invalidate cache, reset the hit counter
     // and print debug stats
     // returns true if invalidated
@@ -163,7 +160,7 @@ public:
      *
      * If no "easy" properties exist resorts to comparing the blit textures
      */
-    void selectCacheEntry(KWin::BlurRenderData &renderInfo, qreal opacity, KWin::GLVertexBuffer *vbo);
+    void selectCacheEntry(KWin::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo);
 
     /**
      * Injects the geometry used for the cache, in logical pixels
