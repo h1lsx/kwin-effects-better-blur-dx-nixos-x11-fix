@@ -273,8 +273,6 @@ void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
         }
 
         // check if textures differ on the pixel level
-        // we'll just (ab)use the provided framebuffer for this
-        // as it *should* always be correct
         KWin::ShaderManager::instance()->pushShader(m_textureComparePass.shader.get());
         KWin::GLFramebuffer::pushFramebuffer(compareFramebuffer.get());
 
