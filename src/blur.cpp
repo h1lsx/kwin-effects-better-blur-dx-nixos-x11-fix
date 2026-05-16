@@ -1133,14 +1133,14 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
     vbo->bindArrays();
 
     // BBDX:
-    m_blurCache->selectCacheEntry(renderInfo, vbo);
+    m_blurCache->selectCacheEntry(dirtyRegion, renderInfo, vbo);
     if (renderInfo.cache.valid()) {
         const float modulation = opacity * opacity;
         m_blurCache->drawCached(scaledBackgroundRect, viewport, renderInfo, vbo, vertexCount, modulation);
         vbo->unbindArrays();
         return;
     } else {
-        auto cacheEntry = std::make_unique<BBDX::BlurCacheEntry>(scaledBackgroundRect, textureFormat, renderInfo.framebuffers[0].get());
+        auto cacheEntry = std::make_unique<BBDX::BlurCacheEntry>(scaledBackgroundRect, textureFormat, renderInfo.framebuffers[0].get(), dirtyRegion);
         renderInfo.cache.add(std::move(cacheEntry));
     }
 

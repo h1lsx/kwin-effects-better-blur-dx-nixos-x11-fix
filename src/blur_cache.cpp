@@ -24,12 +24,13 @@
 #include <QVector2D>
 #include <QtNumeric>
 
+#include <chrono>
 #include <memory>
 #include <vector>
 
 Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMsg)
 
-BBDX::BlurCacheEntry::BlurCacheEntry(const KWin::Rect &scaledBackgroundRect, GLenum textureFormat, KWin::GLFramebuffer *sourceBlitFramebuffer) {
+BBDX::BlurCacheEntry::BlurCacheEntry(const KWin::Rect &scaledBackgroundRect, GLenum textureFormat, KWin::GLFramebuffer *sourceBlitFramebuffer, KWin::Region dirtyRegion) {
     // allocate new cached texture + framebuffer
     glClearColor(0, 0, 0, 0);
     cachedTexture = KWin::GLTexture::allocate(textureFormat, scaledBackgroundRect.size());
@@ -75,6 +76,9 @@ BBDX::BlurCacheEntry::BlurCacheEntry(const KWin::Rect &scaledBackgroundRect, GLe
     KWin::GLFramebuffer::pushFramebuffer(sourceBlitFramebuffer);
     blitFramebuffer->blitFromFramebuffer();
     KWin::GLFramebuffer::popFramebuffer();
+
+    this->dirtyRegion = dirtyRegion;
+    verifiedAt = std::chrono::steady_clock::now();
 }
 
 void BBDX::BlurCacheLRU::reset() {
@@ -101,7 +105,7 @@ const BBDX::BlurCacheEntry* BBDX::BlurCacheLRU::next() {
     return ret;
 }
 
-void BBDX::BlurCacheLRU::select() {
+void BBDX::BlurCacheLRU::select(bool verified) {
     if (m_entries.empty()) {
         qCCritical(BLUR_CACHE) << BBDX::LOG_PREFIX
                                << "BlurCacheLRU::select(): Called with no entries";
@@ -140,6 +144,10 @@ void BBDX::BlurCacheLRU::select() {
     m_valid = selected;
     selected->priority = 0;
     selected->hits += 1;
+
+    if (verified) {
+        selected->verifiedAt = std::chrono::steady_clock::now();
+    }
 }
 
 void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
@@ -224,7 +232,8 @@ BBDX::BlurCache::BlurCache() {
     }
 }
 
-void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
+void BBDX::BlurCache::selectCacheEntry(const KWin::Region &dirtyRegion,
+                                       KWin::BlurRenderData &renderInfo,
                                        KWin::GLVertexBuffer *vbo) {
     auto &cache = renderInfo.cache;
     std::unique_ptr<KWin::GLTexture> compareTexture{nullptr};
@@ -244,6 +253,16 @@ void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
         }
         if (prevBlitTexture->internalFormat() != blitTexture->internalFormat()) {
             continue;
+        }
+
+        // as a speedup assume cache for the same dirtyRegion is
+        // still valid for a short period
+        if (dirtyRegion == cacheEntry->dirtyRegion) {
+            std::chrono::milliseconds elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - cacheEntry->verifiedAt);
+            if (elapsed < std::chrono::milliseconds{100}) {
+                cache.select();
+                continue;
+            }
         }
 
         // fast path in case we already determined we
@@ -320,7 +339,9 @@ void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
         if (anyPixelsDifferent == GL_FALSE) {
             // no need to break; this causes BlurCacheLRU::next()
             // to return nullptr on the next iteration
-            cache.select();
+            //
+            // this call also updates the verifiedAt timestamp
+            cache.select(true);
         }
 
 cleanup:

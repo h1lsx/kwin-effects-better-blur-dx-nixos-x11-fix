@@ -14,6 +14,7 @@
 #  include <core/rect.h>
 #endif
 
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -43,11 +44,17 @@ struct BlurCacheEntry {
     // cache hits of this entry, incremented by BlurCacheLRU::select()
     uint hits{0};
 
+    // last time this cache entry was verified; used for rate limiting
+    std::chrono::time_point<std::chrono::steady_clock> verifiedAt{};
+
+    // dirtyRegion used to create this cache entry
+    KWin::Region dirtyRegion{};
+
     /**
      * Create a new BlurCacheEntry by allocating cachedTexture and cachedFramebuffer
      * blitTexture is cloned from the provided blitFramebuffer.
      */
-    explicit BlurCacheEntry(const KWin::Rect &scaledBackgroundRect, GLenum textureFormat, KWin::GLFramebuffer *blitFramebuffer);
+    explicit BlurCacheEntry(const KWin::Rect &scaledBackgroundRect, GLenum textureFormat, KWin::GLFramebuffer *blitFramebuffer, KWin::Region dirtyRegion);
 };
 
 /**
@@ -89,7 +96,7 @@ public:
      *  - move index back to the start
      *  - increase priority index
      */
-    void select();
+    void select(bool verified = false);
 
     /**
      * Add an entry to the cache, potentially removing the oldest entry.
@@ -161,7 +168,7 @@ public:
     /**
      * Select a cache entry from renderInfo if a valid one exists
      */
-    void selectCacheEntry(KWin::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo);
+    void selectCacheEntry(const KWin::Region &dirtyRegion, KWin::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo);
 
     /**
      * Injects the geometry used for the cache, in logical pixels
