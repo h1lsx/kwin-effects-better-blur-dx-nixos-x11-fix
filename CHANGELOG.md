@@ -1,6 +1,18 @@
 # DEV
 Things not in any tagged release yet:
 
+### Features
+- **Plasma 6.7 support**
+- **Multiple cached textures** (currently up to 5) which should help with
+  windows that frequently do partial repaints.
+  (Although this is trading GPU processing with higher VRAM usage, so maybe it might
+  be beneficial to have a config for this at some point)
+
+### Internal
+- Tweaked the texture compare query + shaders to be faster
+- Don't invalidate cache on opacity change (this was left over from
+  when opacity was still part of the cached texture)
+
 # 2.4.1
 
 Version bump to fix version string - no actual changes
