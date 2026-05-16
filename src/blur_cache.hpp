@@ -141,8 +141,11 @@ private:
     // set to false once the glQuery fails with GL_INVALID_ENUM
     bool m_glQueryAvailable{true};
 
-    // during texture comparison the drawn Rect is scaled by this amount
-    qreal m_textureCompareScaleFactor{0.5};
+    // During texture comparison backgroundRect is scaled by this amount
+    // to speed up the OpenGL query which compares every fragment.
+    // Even a scale of 0.5 means we just need to compare 25% of the actual pixels
+    // while likely still being "good enough"
+    qreal m_textureCompareScaleFactor{0.1};
 
 public:
     /**
