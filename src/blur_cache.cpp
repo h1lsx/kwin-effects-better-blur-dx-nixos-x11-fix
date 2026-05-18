@@ -223,7 +223,11 @@ void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
     }
 }
 
-void BBDX::BlurCacheLRU::invalidate(QStringView reason) {
+void BBDX::BlurCacheLRU::invalidate(QStringView reason, bool skipGlContext) {
+    if (m_entries.empty()) {
+        return;
+    }
+
     uint totalHits{0};
     for (auto &entry : m_entries) {
         totalHits += entry->hits;
@@ -238,7 +242,10 @@ void BBDX::BlurCacheLRU::invalidate(QStringView reason) {
     // invalidate can be called from various events outside
     // the window paint pipeline so we need to explicitly
     // make the context current to correctly drop framebuffers/textures
-    KWin::effects->makeOpenGLContextCurrent();
+    if (!skipGlContext) {
+        KWin::effects->makeOpenGLContextCurrent();
+    }
+
     m_entries.clear();
     reset();
 }

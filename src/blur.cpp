@@ -983,7 +983,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
         renderInfo.framebuffers.clear();
         renderInfo.textures.clear();
         // BBDX:
-        renderInfo.cache.invalidate(QStringLiteral("New framebuffers required"));
+        renderInfo.cache.invalidate(QStringLiteral("New framebuffers required"), true);
 
         glClearColor(0, 0, 0, 0);
         for (size_t i = 0; i <= m_iterationCount; ++i) {

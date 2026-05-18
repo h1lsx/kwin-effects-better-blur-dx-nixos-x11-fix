@@ -120,8 +120,12 @@ public:
     /**
      * Explicitly clear all cache entries
      * and print sats to debug log
+     *
+     * By default this will make the OpenGL context current
+     * before clearing the entries as this funtion may be called at any time.
+     * Set skipGlContext in cases where the context is already current.
      */
-    void invalidate(QStringView reason);
+    void invalidate(QStringView reason, bool skipGlContext = false);
 
     /**
      * Set window using this cache for logging purposes
