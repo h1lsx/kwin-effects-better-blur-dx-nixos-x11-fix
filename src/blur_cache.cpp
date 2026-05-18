@@ -289,19 +289,6 @@ void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
 
     cache.reset();
     while (auto cacheEntry = cache.next()) {
-        KWin::GLTexture *cacheBlitTexture = cacheEntry->blitTexture.get();
-
-        // previous blit texture is definitely different
-        if (!cacheBlitTexture) {
-            continue;
-        }
-        if (cacheBlitTexture->size() != blitTexture->size()) {
-            continue;
-        }
-        if (cacheBlitTexture->internalFormat() != blitTexture->internalFormat()) {
-            continue;
-        }
-
         // a different dirtyRegion means different areas were blitted
         // even if the texture itself looks the same
         if (!dirtyRegionContains(cacheEntry->dirtyRegion, dirtyRegion)) {
@@ -345,7 +332,7 @@ void BBDX::BlurCache::selectCacheEntry(KWin::BlurRenderData &renderInfo,
 
         m_textureComparePass.shader->setUniform(m_textureComparePass.texUnitOldLocation, 0);
         glActiveTexture(GL_TEXTURE0);
-        cacheBlitTexture->bind();
+        cacheEntry->blitTexture->bind();
 
         m_textureComparePass.shader->setUniform(m_textureComparePass.texUnitNewLocation, 1);
         glActiveTexture(GL_TEXTURE1);
