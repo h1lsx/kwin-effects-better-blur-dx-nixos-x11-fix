@@ -80,6 +80,14 @@ public:
     }
 
     /**
+     * Invalidate cache on destruction
+     * (for stats and explicit OpenGL context)
+     */
+    ~BlurCacheLRU() {
+        invalidate(QStringLiteral("BlurCacheLRU destroyed"));
+    }
+
+    /**
      * Move current index back to start and unset m_valid
      */
     void reset();
