@@ -957,7 +957,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
     if (deviceRegion != Region::infinite()) {
         for (const Rect &clipRect : deviceRegion.rects()) {
             const RectF deviceClipRect = clipRect.translated(-deviceBackgroundRect.topLeft());
-            for (const Rect &shapeRect : blurShape.rects()) {
+            for (const auto &shapeRect : blurShape.rects()) {
                 const RectF deviceShapeRect = shapeRect.translated(-backgroundRect.topLeft()).scaled(viewport.scale()).rounded();
                 if (const RectF intersected = deviceClipRect.intersected(deviceShapeRect); !intersected.isEmpty()) {
                     effectiveShape.append(intersected);
@@ -965,7 +965,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
             }
         }
     } else {
-        for (const Rect &rect : blurShape.rects()) {
+        for (const auto &rect : blurShape.rects()) {
             effectiveShape.append(rect.translated(-backgroundRect.topLeft()).scaled(viewport.scale()).rounded());
         }
     }
