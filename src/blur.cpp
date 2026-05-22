@@ -1021,19 +1021,19 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
 #else
     const Region dirtyRegion = viewport.mapFromDeviceCoordinatesContained(deviceRegion) & backgroundRect;
 #endif
-#if BETTERBLUR_NOT_NEEDED
-    for (const Rect &dirtyRect : dirtyRegion.rects()) {
-        renderInfo.framebuffers[0]->blitFromRenderTarget(renderTarget, viewport, dirtyRect, dirtyRect.translated(-backgroundRect.topLeft()));
-    }
-#else
-    // BBDX: setup and blit full region for proper caching
-    // which allows better reuse across different dirtyRegions
     m_blurCache->preparePaintData(&dirtyRegion, renderInfo.framebuffers[0].get(), &backgroundRect, &scaledBackgroundRect);
     m_blurCache->selectCacheEntryEarly(renderInfo);
     if (!renderInfo.cache.valid()) {
-        renderInfo.framebuffers[0]->blitFromRenderTarget(renderTarget, viewport, backgroundRect, backgroundRect.translated(-backgroundRect.topLeft()));
+#if KWIN_VERSION < KWIN_VERSION_CODE(6, 5, 80)
+    for (const QRect &dirtyRect : dirtyRegion) {
+        renderInfo.framebuffers[0]->blitFromRenderTarget(renderTarget, viewport, dirtyRect, dirtyRect.translated(-backgroundRect.topLeft()));
+    }
+#else
+    for (const Rect &dirtyRect : dirtyRegion.rects()) {
+        renderInfo.framebuffers[0]->blitFromRenderTarget(renderTarget, viewport, dirtyRect, dirtyRect.translated(-backgroundRect.topLeft()));
     }
 #endif
+    }
 
 
     // Upload the geometry: the first 6 vertices are used when downsampling and upsampling offscreen,
