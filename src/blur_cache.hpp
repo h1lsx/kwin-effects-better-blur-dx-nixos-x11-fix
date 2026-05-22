@@ -66,7 +66,7 @@ struct BlurCacheEntry {
 class BlurCacheLRU {
 private:
     std::vector<std::unique_ptr<BlurCacheEntry>> m_entries{};
-    size_t m_max{5};
+    size_t m_max{0};
     size_t m_next{0};
     BlurCacheEntry* m_valid{nullptr};
 
@@ -75,7 +75,7 @@ private:
     pid_t m_windowPID{-1};
 
 public:
-    explicit BlurCacheLRU(size_t max = 5)
+    explicit BlurCacheLRU(size_t max = 1)
         : m_max{max}
     {
         m_entries.reserve(max);

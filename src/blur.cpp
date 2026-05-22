@@ -1029,6 +1029,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
     }
 #endif
     }
+    renderInfo.framebuffers[0]->blitFromRenderTarget(renderTarget, viewport, backgroundRect, backgroundRect.translated(-backgroundRect.topLeft()));
 
 
     // Upload the geometry: the first 6 vertices are used when downsampling and upsampling offscreen,

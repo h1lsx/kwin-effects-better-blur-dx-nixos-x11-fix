@@ -175,35 +175,6 @@ void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
         m_entries[i]->priority += 1;
     }
 
-    // Deduplicate entries with same dirtyRegion.
-    // It doesn't make sense to keep multiple of them:
-    // 1) the new one is larger and fully contains the old one
-    // 2) the old one was invalid and is not needed anymore
-    //
-    // We should be able to safely assume there is at most one duplicate
-    // because deduplication happens for every add()
-    BlurCacheEntry* added = m_entries[0].get();
-    for (auto it = m_entries.begin() + 1; it != m_entries.end(); it++) {
-        BlurCacheEntry* candidate = (*it).get();
-
-        if (dirtyRegionContains(added->dirtyRegion, candidate->dirtyRegion)) {
-            for (auto &entry : m_entries) {
-                if (entry->priority > candidate->priority) {
-                    entry->priority -= 1;
-                }
-            }
-
-            qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
-                                << "Dropping old BlurCacheEntry:" << m_windowClass << "\n"
-                                << "PID:" << m_windowPID << "\n"
-                                << "Reason: Duplicate dirtyRegion\n"
-                                << "Hits:" << candidate->hits;
-
-            m_entries.erase(it);
-            break;
-        }
-    }
-
     // Cleanup excessive cache entries
     //
     // We should be able to assume the limit is exceeded by 1 at most
