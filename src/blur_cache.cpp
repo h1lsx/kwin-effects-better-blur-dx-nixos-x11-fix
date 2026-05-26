@@ -477,7 +477,6 @@ cleanup:
         // else we'll re-blur after which it's no longer dirty
         if (cache.dirty()) {
             cache.clearDirty();
-            return;
         } else {
             cache.select();
         }
