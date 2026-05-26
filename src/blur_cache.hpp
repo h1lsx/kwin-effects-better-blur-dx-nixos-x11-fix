@@ -274,8 +274,6 @@ public:
      */
     explicit BlurCache(BlurEffect *effect);
 
-    ~BlurCache();
-
     /**
      * Check if pass is ready i.e. all shaders loaded
      */
