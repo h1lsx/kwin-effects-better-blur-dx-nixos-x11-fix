@@ -326,6 +326,14 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
             return;
         }
 
+        // fast path for dirty cache
+        // (we re-blur anyways so the query is unecessary)
+        if (cache.dirty()) {
+            cacheEntry->updateBlitTexture(renderInfo.framebuffers[0].get(), *m_paintData.dirtyRegion);
+            cache.clearDirty();
+            return;
+        }
+
         // QUERY START
 
         // textures + FBOs used in query
