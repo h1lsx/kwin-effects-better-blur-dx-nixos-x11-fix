@@ -247,11 +247,6 @@ private:
      */
     GLQueryAvailable m_glQueryAvailable{GLQueryAvailable::ANY_SAMPLES_PASSED_CONSERVATIVE};
 
-    /**
-     * Reusable query object for texture comparison
-     */
-    GLuint m_queryObject{0};
-
     // Data used for this specific window paint
     // !!! preparePaintData() must be called before accessing any of this !!!
     struct {

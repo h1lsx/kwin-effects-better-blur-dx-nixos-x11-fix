@@ -255,12 +255,6 @@ BBDX::BlurCache::BlurCache(BBDX::BlurEffect *effect) {
     } else {
         m_texturePass.mvpMatrixLocation = m_texturePass.shader->uniformLocation("modelViewProjectionMatrix");
     }
-
-    glGenQueries(1, &m_queryObject);
-}
-
-BBDX::BlurCache::~BlurCache() {
-    glDeleteQueries(1, &m_queryObject);
 }
 
 void BBDX::BlurCache::preparePaintData(const KWin::RenderView *view,
