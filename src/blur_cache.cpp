@@ -46,6 +46,7 @@ static inline std::pair<std::unique_ptr<KWin::GLTexture>, std::unique_ptr<KWin::
     }
 
     // allocate new cached texture + framebuffer for the blurred texture
+    glClearColor(0, 0, 0, 0);
     auto texture = KWin::GLTexture::allocate(source->colorAttachment()->internalFormat(), source->colorAttachment()->size());
     if (!texture) {
         qCWarning(BLUR_CACHE) << BBDX::LOG_PREFIX << "Failed to allocate an offscreen texture";
@@ -350,10 +351,24 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
             return;
         }
 
+        // TODO: skip in dirty cache case
         auto oldTextureFBO = cloneFBO(cacheEntry->blitFramebuffer.get());
         auto newTextureFBO = cloneFBO(renderInfo.framebuffers[0].get());
         auto &[oldTexture, oldFramebuffer] = oldTextureFBO;
         auto &[newTexture, newFramebuffer] = newTextureFBO;
+
+        // collect the blit damage for future repaints
+        cacheEntry->updateBlitTexture(renderInfo.framebuffers[0].get(), *m_paintData.dirtyRegion);
+
+        // select if cache isn't dirty
+        // else we'll re-blur after which it's no longer dirty
+        if (cache.dirty()) {
+            qCDebug(BLUR_CACHE) << "Cache dirty:" << m_paintData.window->windowClass();
+            cache.clearDirty();
+            return;
+        } else {
+            cache.select();
+        }
 
         // Hijack FBO of the cached blit to avoid needless reallocation.
         // glColorMask should keep it protected
@@ -476,18 +491,6 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
                                          std::move(oldTextureFBO),
                                          std::move(newTextureFBO));
         queryQueued = true;
-
-        // collect the blit damage for future repaints
-        cacheEntry->updateBlitTexture(renderInfo.framebuffers[0].get(), *m_paintData.dirtyRegion);
-
-        // select if cache isn't dirty
-        // else we'll re-blur after which it's no longer dirty
-        if (cache.dirty()) {
-            qCDebug(BLUR_CACHE) << "Cache dirty:" << m_paintData.window->windowClass();
-            cache.clearDirty();
-        } else {
-            cache.select();
-        }
 
 cleanup:
         glDepthMask(GL_TRUE);
