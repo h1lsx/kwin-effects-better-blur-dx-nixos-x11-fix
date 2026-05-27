@@ -19,4 +19,7 @@ void main() {
     if (all(lessThan(diff, vec4(0.01)))) {
         discard;
     }
+
+    // Write new color back to cached blit
+    fragColor = newColor;
 }

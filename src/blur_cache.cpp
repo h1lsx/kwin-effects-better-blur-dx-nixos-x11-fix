@@ -334,6 +334,9 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
             return;
         }
 
+        // else always select
+        cache.select();
+
         // QUERY START
 
         // textures + FBOs used in query
@@ -342,8 +345,8 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
         auto &[oldTexture, oldFramebuffer] = oldTextureFBO;
         auto &[newTexture, newFramebuffer] = newTextureFBO;
 
-        // Hijack FBO of the cached blit to avoid needless reallocation.
-        // glColorMask should keep it protected
+        // Use FBO of the cached blit; the query's draw will also
+        // update this with pixels from the new blit (if it differs)
         const auto compareFramebuffer = oldFramebuffer.get();
 
         // check if textures differ on the pixel level
@@ -366,10 +369,6 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
         bool queryQueued{false};
         GLuint queryObject{};
         glGenQueries(1, &queryObject);
-
-        // don't actually draw anything
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        glDepthMask(GL_FALSE);
 
         // pick the first available query in preferred order (based on supposed speed)
         // https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBeginQuery.xhtml
@@ -464,8 +463,6 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
         queryQueued = true;
 
 cleanup:
-        glDepthMask(GL_TRUE);
-        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
         glActiveTexture(GL_TEXTURE0);
 
         if (!queryQueued) {
@@ -477,10 +474,6 @@ cleanup:
         KWin::ShaderManager::instance()->popShader();
 
         // QUERY END
-
-        // collect the blit damage for future repaints and select
-        cacheEntry->updateBlitTexture(renderInfo.framebuffers[0].get(), *m_paintData.dirtyRegion);
-        cache.select();
     }
 }
 
