@@ -254,7 +254,7 @@ BlurEffect::BlurEffect()
     connect(effects, &EffectsHandler::windowAdded, this, &BlurEffect::slotWindowAdded);
     connect(effects, &EffectsHandler::windowDeleted, this, &BlurEffect::slotWindowDeleted);
 #if defined(BETTERBLUR_X11)
-    connect(effects, &EffectsHandler::screenRemoved, this, &BlurEffect::slotScreenRemoved);
+    connect(effects, &EffectsHandler::screenRemoved, this, &BlurEffect::slotViewRemoved);
 #else
     connect(effects, &EffectsHandler::viewRemoved, this, &BlurEffect::slotViewRemoved);
 #endif
@@ -537,11 +537,7 @@ void BlurEffect::slotWindowDeleted(EffectWindow *w)
 #endif
 }
 
-#if defined(BETTERBLUR_X11)
-void BlurEffect::slotScreenRemoved(KWin::Output *view)
-#else
 void BlurEffect::slotViewRemoved(KWin::RenderView *view)
-#endif
 {
     for (auto &[window, data] : m_windows) {
         if (auto it = data.render.find(view); it != data.render.end()) {
@@ -679,7 +675,7 @@ void BlurEffect::prePaintScreen(ScreenPrePaintData &data)
     m_currentDeviceBlur = Region();
 #endif // KWIN_VERSION < KWIN_VERSION_CODE(6, 6, 4)
 #if defined(BETTERBLUR_X11)
-    m_currentView = nullptr;
+    m_currentView = data.screen;
 #else
     m_currentView = data.view;
 #endif
