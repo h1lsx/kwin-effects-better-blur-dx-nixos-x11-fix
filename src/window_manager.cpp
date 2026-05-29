@@ -49,8 +49,6 @@ BBDX::WindowManager::WindowManager(BBDX::BlurEffect *effect) {
 void BBDX::WindowManager::slotWindowAdded(KWin::EffectWindow *w) {
     auto window = std::make_unique<BBDX::Window>(this, w);
 
-    qCDebug(WINDOW_MANAGER) << BBDX::LOG_PREFIX << "Window added:" << *window;
-
     m_windows.insert_or_assign(w, std::move(window));
 
     if (w->isDock()) {
@@ -59,6 +57,8 @@ void BBDX::WindowManager::slotWindowAdded(KWin::EffectWindow *w) {
     }
 
     refreshWindowCoverageAll();
+
+    qCDebug(WINDOW_MANAGER) << BBDX::LOG_PREFIX << "Window added:" << *(m_windows[w]);
 }
 
 void BBDX::WindowManager::slotWindowDeleted(KWin::EffectWindow *w) {
