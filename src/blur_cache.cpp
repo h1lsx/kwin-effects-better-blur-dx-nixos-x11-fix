@@ -32,6 +32,7 @@
 #include <memory>
 #include <vector>
 #include <chrono>
+#include <cmath>
 
 Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMsg)
 
@@ -42,18 +43,18 @@ Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMs
 static inline std::chrono::steady_clock::time_point validationsToTTL(uint validations) {
     // we start at 60fps
     // each validation cuts framerate in half
-    // (minimum 5fps)
-    uint fps;
+    double fps{60.0};
 
-    // 60u >> 4 = 3
-    if (validations < 4) {
-        fps = 60u >> validations;
-    } else {
-        fps = 5u;
+    for (uint i{1}; i <= validations; i++) {
+        fps /= 2.0;
     }
 
+    const auto fpsRounded = std::lround(std::max(fps, 1.0));
+
+    qCDebug(BLUR_CACHE) << "Rate limiting to:" << fpsRounded << "fps";
+
     constexpr std::chrono::microseconds second{1000000};
-    return std::chrono::steady_clock::now() + second / fps;
+    return std::chrono::steady_clock::now() + second / fpsRounded;
 }
 
 
