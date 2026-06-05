@@ -362,6 +362,7 @@ void BBDX::BlurCache::selectCacheEntry(BBDX::BlurRenderData &renderInfo,
         }
 
         // else select and verify
+        //qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Cache needs re-validation:" << m_paintData.window->windowClass();
         cacheEntry->validUntil = validationsToTTL(cacheEntry->validations);
         cache.select();
 
