@@ -296,6 +296,15 @@ public:
     KWin::Region dirtyRegion() const { return m_dirtyRegion; }
 };
 
+class GLQueryObjectDeleter {
+public:
+    void operator()(GLuint *queryObject) {
+        if (queryObject) {
+            glDeleteQueries(1, queryObject);
+        }
+    }
+};
+
 class BlurCache {
 private:
     struct {
@@ -320,6 +329,11 @@ private:
 
     // pointer to the managing effect
     BlurEffect *m_effect{nullptr};
+
+    /**
+     * Shared query object across paints
+     */
+    std::unique_ptr<GLuint, GLQueryObjectDeleter> m_glQueryObject{nullptr};
 
     /**
      * set to the best supported query that
@@ -409,7 +423,15 @@ public:
     uint vboStartScreen() const { return vboStartCache() + vboCountCache(); }
 
     /**
-     * Draw the cached texture
+     * Set up query and call glBeginConditionalRender
+     * 
+     * The regular blur passes should happen between this and
+     * BlurCached::rawCached()
+     */
+    void prepareCache(BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo);
+
+    /**
+     * Call glEndConditionalRender and draw the cached texture
      */
     void drawCached(const KWin::Rect &scaledBackgroundRect, const KWin::RenderViewport &viewport, BBDX::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo, const int vertexCount, const float modulation) const;
 
