@@ -421,6 +421,10 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache,
     glBeginConditionalRender(*m_glQueryObject, GL_QUERY_BY_REGION_WAIT);
     m_paintData.glBeginConditionalRenderCalled = true;
 
+    // our query implicitly updates the blur source, this
+    // makes sure subsequent blur passes get the correct one
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
+
 cleanup:
     glActiveTexture(GL_TEXTURE0);
 
