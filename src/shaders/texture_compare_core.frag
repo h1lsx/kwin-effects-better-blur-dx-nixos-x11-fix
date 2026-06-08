@@ -16,8 +16,8 @@ void main() {
     vec4 oldColor = texelFetch(texUnitOld, physCoord, 0);
     vec4 newColor = texelFetch(texUnitNew, physCoord, 0);
 
-    vec4 diff = abs(oldColor - newColor);
-    if (all(lessThan(diff, vec4(0.01)))) {
+    vec3 diff = abs(oldColor.rgb - newColor.rgb);
+    if (all(lessThan(diff, vec3(0.01)))) {
         discard;
     }
 
