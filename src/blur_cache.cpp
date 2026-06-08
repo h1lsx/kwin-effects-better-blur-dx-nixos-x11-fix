@@ -5,7 +5,6 @@
 #include "blur.h"
 #include "utils.h"
 
-#include <chrono>
 #include <epoxy/gl.h>
 #include <epoxy/gl_generated.h>
 #include <qloggingcategory.h>
@@ -30,28 +29,8 @@
 #include <QtNumeric>
 
 #include <memory>
-#include <vector>
-#include <chrono>
-#include <cmath>
 
 Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMsg)
-
-
-/**
- * maps a validation count to a future time
- */
-static inline std::chrono::steady_clock::time_point validationsToTTL(uint validations) {
-    // we start at 60fps
-    // each validation cuts framerate in half
-    double fps{60.0 / (1 << validations)};
-
-    const auto fpsRounded = std::lround(std::max(fps, 1.0));
-
-    //qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Rate limiting to:" << fpsRounded << "fps";
-
-    constexpr std::chrono::microseconds second{1000000};
-    return std::chrono::steady_clock::now() + second / fpsRounded;
-}
 
 
 std::unique_ptr<BBDX::BlurCacheEntry> BBDX::BlurCacheEntry::create(const KWin::Rect &scaledBackgroundRect,
@@ -117,33 +96,12 @@ void BBDX::BlurCacheEntry::updateBlitTexture(KWin::GLFramebuffer *dirtyBlitFrame
     KWin::GLFramebuffer::popFramebuffer();
 }
 
-void BBDX::BlurCacheEntry::accumulateDirtyRegion(const KWin::Region &dirtyRegion) {
-    for (const auto &rect : dirtyRegion.rects()) {
-        accumulatedDirtyRegion |= rect;
-    }
-}
-
 KWin::Region BBDX::BlurCacheEntry::localDirtyRegion(const KWin::Region &dirtyRegion) const {
     return dirtyRegion.translated(-backgroundRect.topLeft());
 }
 
 BBDX::BlurCacheEntry* BBDX::BlurCacheLRU::get() {
     return m_entry.get();
-}
-
-void BBDX::BlurCacheLRU::select() {
-    if (!m_entry) {
-        qCWarning(BLUR_CACHE) << BBDX::LOG_PREFIX
-                               << "BlurCacheLRU::select(): Called with no existing BlurCacheEntry";
-        return;
-    }
-
-    m_valid = true;
-    m_entry->hits += 1;
-}
-
-void BBDX::BlurCacheLRU::reset() {
-    m_valid = false;
 }
 
 void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
@@ -160,29 +118,6 @@ void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
 
     m_entry = std::move(entry);
     m_entry->priority = 0;
-    select();
-}
-
-void BBDX::BlurCacheLRU::setDirty() {
-    if (m_dirty) {
-        return;
-    }
-
-    m_dirty = true;
-
-    uint hits{0};
-    if (m_entry) {
-        hits = m_entry->hits;
-        m_entry->hits = 0;
-        m_entry->validations = 0;
-        m_entry->validUntil = std::chrono::steady_clock::time_point{};
-        m_entry->accumulatedDirtyRegion = KWin::Region{};
-    }
-
-    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
-                        << "BlurCache marked dirty:" << m_windowClass << "\n"
-                        << "PID:" << m_windowPID << "\n"
-                        << "Hits:" << hits;
 }
 
 void BBDX::BlurCacheLRU::invalidate(BlurCacheInvalidation type, QStringView reason, bool skipGlContext) {
@@ -190,20 +125,9 @@ void BBDX::BlurCacheLRU::invalidate(BlurCacheInvalidation type, QStringView reas
         return;
     }
 
-    if (type == BlurCacheInvalidation::SOFT) {
-        qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
-                            << "Dirtying cache:" << m_windowClass << "\n"
-                            << "PID:" << m_windowPID << "\n"
-                            << "Hits:" << m_entry->hits << "\n"
-                            << "Reason:" << reason;
-        setDirty();
-        return;
-    }
-
     qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
                         << "Invalidating cache:" << m_windowClass << "\n"
                         << "PID:" << m_windowPID << "\n"
-                        << "Hits:" << m_entry->hits << "\n"
                         << "Reason:" << reason;
 
     // invalidate can be called from various events outside
@@ -212,17 +136,6 @@ void BBDX::BlurCacheLRU::invalidate(BlurCacheInvalidation type, QStringView reas
     if (!skipGlContext) {
         KWin::effects->makeOpenGLContextCurrent();
     }
-
-    m_entry.reset();
-    reset();
-}
-
-void BBDX::BlurCacheLRU::validate() const {
-    if (!m_entry) {
-        return;
-    }
-
-    m_entry->validations += 1;
 }
 
 void BBDX::BlurCacheLRU::setWindow(KWin::EffectWindow* w) {
@@ -233,43 +146,6 @@ void BBDX::BlurCacheLRU::setWindow(KWin::EffectWindow* w) {
     m_window = w;
     m_windowClass = m_window->windowClass();
     m_windowPID = m_window->pid();
-}
-
-BBDX::ValidationQuery::~ValidationQuery() {
-    if (m_queryObject) {
-        glDeleteQueries(1, &m_queryObject);
-    }
-}
-
-BBDX::ValidationQuery::Result BBDX::ValidationQuery::result() const {
-    GLuint available{GL_FALSE};
-    glGetQueryObjectuiv(m_queryObject, GL_QUERY_RESULT_AVAILABLE, &available);
-
-    if (!available) {
-        return Result::WAITING;
-    }
-
-    switch (m_queryUsed) {
-        case GL_SAMPLES_PASSED: {
-                GLuint pixelsDifferent{0};
-                glGetQueryObjectuiv(m_queryObject, GL_QUERY_RESULT, &pixelsDifferent);
-                if (pixelsDifferent > 0) {
-                    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Pixels different:" << pixelsDifferent;
-                    return Result::CHANGED;
-                }
-                return Result::UNCHANGED;
-            }
-
-        [[likely]] default: {
-                GLuint anyPixelsDifferent{GL_FALSE};
-                glGetQueryObjectuiv(m_queryObject, GL_QUERY_RESULT, &anyPixelsDifferent);
-                if (anyPixelsDifferent == GL_TRUE) {
-                    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Pixels different";
-                    return Result::CHANGED;
-                }
-                return Result::UNCHANGED;
-            }
-    }
 }
 
 BBDX::BlurCache::BlurCache(BBDX::BlurEffect *effect) {
@@ -430,7 +306,6 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurRenderData &renderInfo,
     }
 
     auto &cache = renderInfo.cache;
-    cache.reset();
 
     // if we don't have an entry create one and bail to fill it
     auto cacheEntry = cache.get();
@@ -569,8 +444,8 @@ void BBDX::BlurCache::drawCached(const KWin::Rect &scaledBackgroundRect, const K
     projectionMatrix.translate(scaledBackgroundRect.x(), scaledBackgroundRect.y());
 
     KWin::GLTexture* read;
-    if (renderInfo.cache.valid()) {
-        read = renderInfo.cache.get()->cachedTexture.get();
+    if (auto &cacheEntry = renderInfo.cache.get()) {
+        read = cacheEntry->cachedTexture.get();
     } else {
         // bail if we didn't select or add a cache entry
         qCritical(BLUR_CACHE) << "drawCached() called without a valid cache entry";

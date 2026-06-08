@@ -17,8 +17,6 @@
 #endif
 
 #include <memory>
-#include <vector>
-#include <chrono>
 
 namespace KWin {
     class GLVertex2D;
@@ -55,30 +53,8 @@ struct BlurCacheEntry {
     std::shared_ptr<KWin::GLTexture> blitTexture{nullptr};
     std::shared_ptr<KWin::GLFramebuffer> blitFramebuffer{nullptr};
 
-    // priority index, lower meaning higher priority
-    uint priority{0};
-
-    // cache hits of this entry, incremented by BlurCacheLRU::select()
-    // (reset by setDirty)
-    uint hits{0};
-
-    // times the cache entry was validated with a query
-    // affects how much validUntil is incremented each validation
-    // (reset by BlurCacheLRU::setDirty(), incremented by BlurCacheLRU::validate())
-    uint validations{0};
-
     // backgroundRect used to create this cache entry
     KWin::Rect backgroundRect{};
-
-    // the cache will be used without re-verification
-    // until this point (unless explicitly dirtied)
-    // (reset by BlurCacheLRU::setDirty())
-    std::chrono::steady_clock::time_point validUntil{};
-
-    // accumulated dirtyRegion across uses without re-verification
-    // (in global coordinates)
-    // (reset by BlurCacheLRU::setDirty())
-    KWin::Region accumulatedDirtyRegion{};
 
     /**
      * Create a new BlurCacheEntry by allocating cachedTexture and cachedFramebuffer
@@ -112,9 +88,6 @@ struct BlurCacheEntry {
 class BlurCacheLRU {
 private:
     std::unique_ptr<BlurCacheEntry> m_entry{};
-    bool m_valid{false};
-    bool m_dirty{false};
-
     KWin::EffectWindow* m_window{nullptr};
     QString m_windowClass{"unknown unknown"};
     pid_t m_windowPID{-1};
@@ -135,39 +108,11 @@ public:
     BlurCacheEntry* get();
 
     /**
-     * Select does the following:
-     *  - acknowledge the current cache entry was a hit (makes valid() return true)
-     *  - bump cache hits
-     */
-    void select();
-
-    /**
-     * Reset select/valid state for next selection
-     */
-    void reset();
-
-    /**
      * Add an entry to the cache, potentially removing the already existing entry.
      * The added entry is assumed to be valid by the time drawCached() is called
      * and will thus implicitly be selected.
      */
     void add(std::unique_ptr<BlurCacheEntry> entry);
-
-    /**
-     * Check if the cache entry was deemed valid
-     */
-    bool valid() const { return m_valid; }
-
-    /**
-     * Mark/clear the dirty (needs re-blur) flag
-     */
-    void setDirty();
-    void clearDirty() { m_dirty = false; }
-
-    /**
-     * Check if the cache entry is dirty and needs to re-blur
-     */
-    bool dirty() const { return m_dirty; }
 
     /**
      * Explicitly mark cache dirty (SOFT) or clear remove the cache entry (HARD)
@@ -180,11 +125,6 @@ public:
     void invalidate(BlurCacheInvalidation type, QStringView reason, bool skipGlContext = false);
 
     /**
-     * Validate the cache entry
-     */
-    void validate() const;
-
-    /**
      * Set window using this cache for logging purposes
      * Locked once set
      */
@@ -194,106 +134,6 @@ public:
      * Get pointer to the window if set
      */
     KWin::EffectWindow* window() const { return m_window; }
-};
-
-class ValidationQuery {
-    GLuint m_queryObject{0};
-    GLenum m_queryUsed{};
-    const KWin::RenderView *m_view{};
-    const KWin::EffectWindow *m_window{};
-    KWin::Region m_dirtyRegion{};
-
-    std::pair<std::shared_ptr<KWin::GLTexture>, std::shared_ptr<KWin::GLFramebuffer>> m_oldTextureFBO{};
-    std::pair<std::shared_ptr<KWin::GLTexture>, std::shared_ptr<KWin::GLFramebuffer>> m_newTextureFBO{};
-
-public:
-    enum class Result {
-        WAITING,
-        CHANGED,
-        UNCHANGED,
-    };
-
-    /**
-     * Construct using an *already created* queryObject.
-     * It is expected that the query was already sent to the GPU before.
-     */
-    explicit ValidationQuery(GLuint queryObject,
-                             GLenum queryUsed,
-                             const KWin::RenderView *view,
-                             const KWin::EffectWindow *window,
-                             KWin::Region dirtyRegion,
-                             std::pair<std::shared_ptr<KWin::GLTexture>, std::shared_ptr<KWin::GLFramebuffer>> oldTextureFBO,
-                             std::pair<std::shared_ptr<KWin::GLTexture>, std::shared_ptr<KWin::GLFramebuffer>> newTextureFBO)
-        : m_queryObject{queryObject}
-        , m_queryUsed{queryUsed}
-        , m_view{view}
-        , m_window{window}
-        , m_dirtyRegion{dirtyRegion}
-        , m_oldTextureFBO{oldTextureFBO}
-        , m_newTextureFBO{newTextureFBO}
-        {}
-
-    /**
-     * Cleans up the query
-     */
-    ~ValidationQuery();
-
-    /**
-     * Disallow copying to avoid bugs caused by unwanted destructor calls
-     * that destroy the query object
-     */
-    ValidationQuery(const ValidationQuery&) = delete;
-    ValidationQuery& operator=(const ValidationQuery&) = delete;
-
-    /**
-     * Proper move
-     */
-    ValidationQuery(ValidationQuery&& other) noexcept
-        : m_queryObject{other.m_queryObject}
-        , m_queryUsed{other.m_queryUsed}
-        , m_view{other.m_view}
-        , m_window{other.m_window}
-        , m_dirtyRegion{std::move(other.m_dirtyRegion)}
-        , m_oldTextureFBO{std::move(other.m_oldTextureFBO)}
-        , m_newTextureFBO{std::move(other.m_newTextureFBO)}
-    {
-        // make sure other's destructor does not delete the query
-        other.m_queryObject = 0;
-    }
-
-    ValidationQuery& operator=(ValidationQuery&& other) noexcept {
-        if (this != &other) {
-            // Clean up our existing query object
-            if (m_queryObject != 0) {
-                glDeleteQueries(1, &m_queryObject);
-            }
-
-            // move
-            m_queryObject = other.m_queryObject;
-            m_queryUsed = other.m_queryUsed;
-            m_view = other.m_view;
-            m_window = other.m_window;
-            m_dirtyRegion = std::move(other.m_dirtyRegion);
-            m_oldTextureFBO = std::move(other.m_oldTextureFBO);
-            m_newTextureFBO = std::move(other.m_newTextureFBO);
-
-            // make sure other's destructor does not delete the query
-            other.m_queryObject = 0;
-        }
-        return *this;
-    }
-
-    /**
-     * Get the query result
-     */
-    Result result() const;
-
-    /**
-     * Getters
-     */
-    const KWin::RenderView *view() const { return m_view; }
-    const KWin::EffectWindow *window() const { return m_window; }
-    KWin::Region dirtyRegion() const { return m_dirtyRegion; }
 };
 
 class GLQueryObjectDeleter {
@@ -362,11 +202,6 @@ private:
         // we won't call glBeginConditionalRender
         bool glBeginConditionalRenderCalled{false};
     } m_paintData;
-
-    /**
-     * Running ValidationQueries, evaluated in prePaintScreen
-     */
-    std::vector<ValidationQuery> m_validationQueries{};
 
 public:
     /**
