@@ -312,6 +312,7 @@ void BBDX::BlurCache::preparePaintData(const KWin::RenderView *view,
     m_paintData.backgroundRect = backgroundRect;
     m_paintData.scaledBackgroundRect = scaledBackgroundRect;
     m_paintData.textureCompareRegion = KWin::Region{};
+    m_paintData.glBeginConditionalRenderCalled = false;
 
     for (const auto &rect : dirtyRegion->rects()) {
         m_paintData.textureCompareRegion |= rect.translated(-backgroundRect->topLeft());
@@ -655,14 +656,30 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurRenderData &renderInfo,
     auto &cache = renderInfo.cache;
     cache.reset();
 
-    // fast path in case we already determined we
-    // can't perform texture comparison
-    if (m_glQueryAvailable == GLQueryAvailable::NONE) [[unlikely]] {
+    // if we don't have an entry create one and bail to fill it
+    auto cacheEntry = cache.get();
+    if (!cacheEntry) {
+        auto newCacheEntry = BBDX::BlurCacheEntry::create(m_paintData.scaledBackgroundRect,
+                                                          renderInfo.framebuffers[0].get(),
+                                                          m_paintData.dirtyRegion,
+                                                          m_paintData.backgroundRect);
+        // TODO: make sure this is safe
+        //       BlurEffect::blur() needs to bail
+        //       if this fails or we get nullptr derefs when trying to
+        //       access blit/target framebuffers
+        if (!newCacheEntry) {
+            qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Creating BlurCacheEntry failed";
+            return;
+        }
+
+        cache.add(newCacheEntry);
+
         return;
     }
 
-    auto cacheEntry = cache.get();
-    if (!cacheEntry) {
+    // fast path in case we already determined we
+    // can't perform texture comparison
+    if (m_glQueryAvailable == GLQueryAvailable::NONE) [[unlikely]] {
         return;
     }
 
@@ -670,7 +687,6 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurRenderData &renderInfo,
     // which would mean there was no dirtyRegion and thus no blitted data.
     // Just accept and bail.
     if (m_paintData.textureCompareRegion.isEmpty()) {
-        cache.select();
         return;
     }
 
@@ -752,6 +768,8 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurRenderData &renderInfo,
 
     glEndQuery(queryUsed);
 
+    glBeginConditionalRender(*m_glQueryObject, GL_QUERY_BY_REGION_WAIT);
+    m_paintData.glBeginConditionalRenderCalled = true;
 
 cleanup:
     glActiveTexture(GL_TEXTURE0);
@@ -763,6 +781,11 @@ cleanup:
 }
 
 void BBDX::BlurCache::drawCached(const KWin::Rect &scaledBackgroundRect, const KWin::RenderViewport &viewport, BBDX::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo, const int vertexCount, const float modulation) const {
+    // end glBeginConditionalRender from prepareCache()
+    if (m_paintData.glBeginConditionalRenderCalled) {
+        glEndConditionalRender();
+    }
+
     KWin::ShaderManager::instance()->pushShader(m_texturePass.shader.get());
     
     QMatrix4x4 projectionMatrix = viewport.projectionMatrix();

@@ -357,6 +357,10 @@ private:
         // and the vertexCount it will use
         KWin::Region textureCompareRegion{};
         uint textureCompareVertexCount;
+
+        // on first paint before we have a usuable cache entry
+        // we won't call glBeginConditionalRender
+        bool glBeginConditionalRenderCalled{false};
     } m_paintData;
 
     /**
