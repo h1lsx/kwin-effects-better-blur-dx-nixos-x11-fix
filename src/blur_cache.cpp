@@ -115,7 +115,7 @@ void BBDX::BlurCacheLRU::add(std::unique_ptr<BlurCacheEntry> entry) {
     m_entry = std::move(entry);
 }
 
-void BBDX::BlurCacheLRU::invalidate(BlurCacheInvalidation type, QStringView reason, bool skipGlContext) {
+void BBDX::BlurCacheLRU::invalidate(QStringView reason, bool skipGlContext) {
     if (!m_entry) {
         return;
     }

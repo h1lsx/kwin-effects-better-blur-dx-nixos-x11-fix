@@ -29,16 +29,6 @@ class BlurEffect;
 struct BlurRenderData;
 
 /**
- * Cache invalidation type
- */
-enum class BlurCacheInvalidation {
-    // soft invalidation just marks cache dirty
-    SOFT,
-    // hard invalidation clears the cache entry entirely
-    HARD,
-};
-
-/**
  * A single valid entry
  */
 struct BlurCacheEntry {
@@ -94,7 +84,7 @@ public:
      * (for stats and explicit OpenGL context)
      */
     ~BlurCacheLRU() {
-        invalidate(BlurCacheInvalidation::HARD, QStringLiteral("BlurCacheLRU destroyed"));
+        invalidate(QStringLiteral("BlurCacheLRU destroyed"));
     }
 
     /**
@@ -111,14 +101,13 @@ public:
     void add(std::unique_ptr<BlurCacheEntry> entry);
 
     /**
-     * Explicitly mark cache dirty (SOFT) or clear remove the cache entry (HARD)
-     * and print sats to debug log
+     * Remove the cache entry and print sats to debug log
      *
      * By default this will make the OpenGL context current
      * before clearing the entry as this funtion may be called at any time.
      * Set skipGlContext in cases where the context is already current.
      */
-    void invalidate(BlurCacheInvalidation type, QStringView reason, bool skipGlContext = false);
+    void invalidate(QStringView reason, bool skipGlContext = false);
 
     /**
      * Set window using this cache for logging purposes

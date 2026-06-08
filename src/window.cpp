@@ -91,7 +91,7 @@ void BBDX::Window::slotWindowFinishUserMovedResized() {
 void BBDX::Window::slotWindowFrameGeometryChanged() {
     updateForceBlurRegion();
     refreshMaximizedState();
-    invalidateBlurCache(BlurCacheInvalidation::SOFT, QStringLiteral("frameGeometry changed"));
+    invalidateBlurCache(QStringLiteral("frameGeometry changed"));
 
     // we need to refresh all windows
     // because a change to this window's geometry
@@ -239,8 +239,8 @@ void BBDX::Window::triggerBlurRegionUpdate() const {
     m_windowManager->triggerBlurRegionUpdate(m_effectwindow);
 }
 
-void BBDX::Window::invalidateBlurCache(BlurCacheInvalidation type, QStringView reason) const {
-    m_windowManager->invalidateBlurCache(m_effectwindow, type, reason);
+void BBDX::Window::invalidateBlurCache(QStringView reason) const {
+    m_windowManager->invalidateBlurCache(m_effectwindow, reason);
 }
 
 bool BBDX::Window::opacityChangedFromOriginal() {
@@ -372,7 +372,7 @@ void BBDX::Window::reconfigure() {
     m_userBorderRadius = m_windowManager->userBorderRadius();
 
     slotWindowOpacityChanged(effectwindow(), 0.0, effectwindow()->opacity());
-    invalidateBlurCache(BlurCacheInvalidation::HARD, QStringLiteral("Reconfigured window"));
+    invalidateBlurCache(QStringLiteral("Reconfigured window"));
     updateForceBlurRegion();
 }
 
