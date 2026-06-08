@@ -428,6 +428,8 @@ public:
 
     /**
      * Set up query and call glBeginConditionalRender
+     *
+     * Should be called after VBO was bound
      * 
      * The regular blur passes should happen between this and
      * BlurCached::rawCached()
@@ -436,6 +438,8 @@ public:
 
     /**
      * Call glEndConditionalRender and draw the cached texture
+     *
+     * Should be called at the very end of the blur passes
      */
     void drawCached(const KWin::Rect &scaledBackgroundRect, const KWin::RenderViewport &viewport, BBDX::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo, const int vertexCount, const float modulation) const;
 

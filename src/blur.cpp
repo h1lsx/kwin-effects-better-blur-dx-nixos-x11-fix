@@ -680,9 +680,6 @@ void BlurEffect::prePaintScreen(ScreenPrePaintData &data)
     m_currentView = data.view;
 #endif
 
-    // BBDX: check cache and add repaints as needed
-    m_blurCache->checkCacheValidity(data);
-
 #if KWIN_VERSION < KWIN_VERSION_CODE(6, 6, 90)
     effects->prePaintScreen(data, presentTime);
 #else
@@ -1140,40 +1137,10 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
 
     vbo->bindArrays();
 
-    // BBDX:
-    m_blurCache->selectCacheEntry(renderInfo, vbo);
-    if (renderInfo.cache.valid()) {
-        const float modulation = opacity * opacity;
-        m_blurCache->drawCached(scaledBackgroundRect, viewport, renderInfo, vbo, vertexCount, modulation);
-        vbo->unbindArrays();
+    // BBDX: prepare cache, bail if there is no cache entry
+    m_blurCache->prepareCache(renderInfo, vbo);
+    if (!renderInfo.cache.get()) {
         return;
-    } else {
-        if (!renderInfo.cache.get()) {
-            auto cacheEntry = BBDX::BlurCacheEntry::create(scaledBackgroundRect,
-                                                           renderInfo.framebuffers[0].get(),
-                                                           dirtyRegion,
-                                                           backgroundRect);
-            if (!cacheEntry) {
-                qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Creating BlurCacheEntry failed";
-                return;
-            }
-
-            // partial cache entries are mostly fine,
-            // but we still want a complete one soon
-            KWin::Region missingPaint{backgroundRect.translated(-backgroundRect.topLeft())};
-            for (const auto &rect : cacheEntry->localDirtyRegion(dirtyRegion).rects()) {
-                missingPaint -= rect;
-            }
-            if (!missingPaint.isEmpty()) {
-                w->addRepaintFull();
-            }
-
-            // new cache entry which we'll actually blur now
-            renderInfo.cache.add(std::move(cacheEntry));
-        }
-
-        // we're making this valid now by re-blurring
-        renderInfo.cache.select();
     }
 
     // The downsample pass of the dual Kawase algorithm: the background will be scaled down 50% every iteration.
