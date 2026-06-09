@@ -456,7 +456,6 @@ void BlurEffect::updateBlurRegion(EffectWindow *w)
 
     // BBDX:
     m_windowManager->getFinalBlurRegion(w, content, frame);
-    m_windowManager->invalidateBlurCache(w, QStringLiteral("Blur region updated"));
 
     if (content.has_value() || frame.has_value()) {
         BlurEffectData &data = m_windows[w];

@@ -87,11 +87,6 @@ void BBDX::Window::slotWindowFrameGeometryChanged() {
     updateForceBlurRegion();
     refreshMaximizedState();
 
-    // technically we don't need to invalidate here
-    // but it's very likely the background blit will never match
-    // after moving (and resizing would invalidate due to new FBOs anyway)
-    invalidateBlurCache(QStringLiteral("frameGeometry changed"));
-
     // Not sure if this is the best place to unset
     // this but seems to work fine for now
     m_restoresMaximized = false;
