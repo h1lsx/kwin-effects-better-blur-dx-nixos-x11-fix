@@ -28,6 +28,19 @@ namespace BBDX {
 class BlurEffect;
 struct BlurRenderData;
 
+// OpenGL query objects per BlurCacheLRU
+static constexpr size_t QUERY_OBJECT_COUNT{5};
+
+// RAII helper for OpenGL query objects wrapped in std::array
+class GLQueryObjectsDeleter {
+public:
+    void operator()(std::array<GLuint, QUERY_OBJECT_COUNT> *queryObjects) {
+        if (queryObjects) {
+            glDeleteQueries(queryObjects->size(), queryObjects->data());
+        }
+    }
+};
+
 /**
  * A single valid entry
  */
@@ -76,6 +89,12 @@ private:
     QString m_windowClass{"unknown unknown"};
     pid_t m_windowPID{-1};
 
+    /**
+     * Shared query objects across paints
+     */
+    std::unique_ptr<std::array<GLuint, QUERY_OBJECT_COUNT>, GLQueryObjectsDeleter> m_glQueryObjects{nullptr};
+    size_t m_nextGlQueryObject{0};
+
 public:
     /**
      * Invalidate cache on destruction
@@ -117,17 +136,13 @@ public:
      * Get pointer to the window if set
      */
     KWin::EffectWindow* window() const { return m_window; }
-};
 
-static constexpr size_t QUERY_OBJECT_COUNT{5};
-
-class GLQueryObjectsDeleter {
-public:
-    void operator()(std::array<GLuint, QUERY_OBJECT_COUNT> *queryObjects) {
-        if (queryObjects) {
-            glDeleteQueries(queryObjects->size(), queryObjects->data());
-        }
-    }
+    /**
+     * Get the next query object ID from m_glQueryObjects
+     *
+     * Lazily allocates the query objects on first call
+     */
+    GLuint getGlQueryObject();
 };
 
 class BlurCache {
@@ -154,12 +169,6 @@ private:
 
     // pointer to the managing effect
     BlurEffect *m_effect{nullptr};
-
-    /**
-     * Shared query objects across paints
-     */
-    std::unique_ptr<std::array<GLuint, QUERY_OBJECT_COUNT>, GLQueryObjectsDeleter> m_glQueryObjects{nullptr};
-    size_t m_nextGlQueryObject{0};
 
     /**
      * set to the best supported query that

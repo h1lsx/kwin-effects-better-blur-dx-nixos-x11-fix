@@ -145,6 +145,22 @@ void BBDX::BlurCacheLRU::setWindow(KWin::EffectWindow* w) {
     m_windowPID = m_window->pid();
 }
 
+GLuint BBDX::BlurCacheLRU::getGlQueryObject() {
+    // lazily allocate the objects
+    if (!m_glQueryObjects) {
+        auto rawGlQueryObjects = new std::array<GLuint, QUERY_OBJECT_COUNT>{};
+        m_glQueryObjects = std::unique_ptr<std::array<GLuint, QUERY_OBJECT_COUNT>, GLQueryObjectsDeleter>{rawGlQueryObjects};
+        glGenQueries(m_glQueryObjects->size(), m_glQueryObjects->data());
+    }
+
+    GLuint queryObject = m_glQueryObjects->at(m_nextGlQueryObject++);
+    if (m_nextGlQueryObject >= m_glQueryObjects->size()) {
+        m_nextGlQueryObject = 0;
+    }
+
+    return queryObject;
+}
+
 BBDX::BlurCache::BlurCache(BBDX::BlurEffect *effect) {
     m_effect = effect;
 
@@ -297,12 +313,6 @@ void BBDX::BlurCache::setupVBO(std::span<KWin::GLVertex2D> &map, size_t &vboInde
 
 void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache,
                                    KWin::GLVertexBuffer *vbo) {
-    if (!m_glQueryObjects) {
-        auto rawGlQueryObjects = new std::array<GLuint, QUERY_OBJECT_COUNT>{};
-        m_glQueryObjects = std::unique_ptr<std::array<GLuint, QUERY_OBJECT_COUNT>, GLQueryObjectsDeleter>{rawGlQueryObjects};
-        glGenQueries(m_glQueryObjects->size(), m_glQueryObjects->data());
-    }
-
     // if we don't have an entry create one and bail to fill it
     auto cacheEntry = cache.get();
     if (!cacheEntry) {
@@ -366,10 +376,7 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache,
     newTexture->bind();
 
     // grab query object from available query objects
-    GLuint queryObject = m_glQueryObjects->at(m_nextGlQueryObject++);
-    if (m_nextGlQueryObject >= m_glQueryObjects->size()) {
-        m_nextGlQueryObject = 0;
-    }
+    GLuint queryObject = cache.getGlQueryObject();
 
     // pick the first available query in preferred order (based on supposed speed)
     // https://registry.khronos.org/OpenGL-Refpages/gl4/html/glBeginQuery.xhtml
