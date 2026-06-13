@@ -7,13 +7,27 @@
 #include <epoxy/gl.h>
 
 #include <memory>
+#include <unordered_map>
 
 namespace BBDX {
 
 class TextureComparer {
-    // compute shader - we need to handle this ourselves :p
-    GLuint m_computeShader{0};
-    GLint m_dirtyRectLocation{};
+    // a compute shader instance
+    // because we need one for each texture format
+    struct ComputeShader {
+        GLuint program{0};
+        GLint dirtyRectLocation{};
+
+        ~ComputeShader() {
+            if (program > 0) {
+                glDeleteProgram(program);
+            }
+        }
+    };
+
+    // compute shaders - we need to handle this ourselves :p
+    // one for each format we encountered
+    std::unordered_map<GLenum, std::unique_ptr<ComputeShader>> m_computeShaders{};
 
     // regular vert+frag so let KWin handle it
     std::unique_ptr<KWin::GLShader> m_glueShader{nullptr};
@@ -25,6 +39,12 @@ class TextureComparer {
     GLuint m_glueQuery{0};
 
     TextureComparer() = default;
+
+    /**
+     * Build a compute shader for the given format
+     * nullptr on error
+     */
+    static std::unique_ptr<ComputeShader> buildComputeShader(GLenum textureFormat);
 
 public:
     /**
@@ -58,7 +78,7 @@ public:
      * The result of the comparison can be found using the
      * query object returned by queryObject()
      */
-    void compareAndUpdate(KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegion) const;
+    void compareAndUpdate(KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegion);
 };
 
 }

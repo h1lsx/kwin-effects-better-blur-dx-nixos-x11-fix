@@ -1,6 +1,5 @@
 #include "texture_comparer.hpp"
 
-#include <epoxy/gl_generated.h>
 #include <opengl/glshadermanager.h>
 #include <opengl/glshader.h>
 #include <opengl/gltexture.h>
@@ -11,20 +10,39 @@
 #include <epoxy/gl.h>
 
 #include <memory>
+#include <qloggingcategory.h>
+#include <unordered_map>
 
 Q_LOGGING_CATEGORY(BBDX_TEXTURE_COMPARER, "kwin_effect_better_blur_dx.texture_comparer", QtInfoMsg)
 
-std::unique_ptr<BBDX::TextureComparer> BBDX::TextureComparer::create() {
-    auto textureComparer = std::unique_ptr<TextureComparer>(new TextureComparer());
-
-    // for vert+frag just use the KWin helpers
-    textureComparer->m_glueShader = KWin::ShaderManager::instance()->generateShaderFromFile(KWin::ShaderTraits{},
-                                                                           QStringLiteral(":/effects/better_blur_dx/shaders/texture_compare_and_update.vert"),
-                                                                           QStringLiteral(":/effects/better_blur_dx/shaders/texture_compare_and_update.frag"));
-    if (!textureComparer->m_glueShader) {
-        qCWarning(BBDX_TEXTURE_COMPARER) << "Failed to load texture compare glue shaders";
-        return nullptr;
+/**
+ * These are the formats in KWin's src/core/drm_formats.cpp
+ * so I guess these are all possible values?
+ * 
+ * Fallback to rgba8 in case we encounter a weird format
+ */
+static inline const char* glslFormatString(GLenum internalFormat) {
+    switch (internalFormat) {
+        case GL_R8:         return "r8";
+        case GL_R16:        return "r16";
+        case GL_RGBA8:      return "rgba8";
+        case GL_RGB10_A2:   return "rgb10_a2";
+        case GL_RGBA16:     return "rgba16";
+        case GL_RGBA16F:    return "rgba16f";
+        
+        // unknown or format with no glsl equivalent
+        case GL_RGB5_A1:
+        case GL_RGBA4:
+        default:
+            qCWarning(BBDX_TEXTURE_COMPARER) << "Unhandled texture format:"
+                                             << internalFormat
+                                             << "- falling back to rgba8";
+            return "rgba8";
     }
+}
+
+std::unique_ptr<BBDX::TextureComparer::ComputeShader> BBDX::TextureComparer::buildComputeShader(GLenum textureFormat) {
+    qCDebug(BBDX_TEXTURE_COMPARER) << "Creating texture compare instance for" << glslFormatString(textureFormat);
 
     // we need to handle the compute shader manually
     QFile shaderFile{QStringLiteral(":/effects/better_blur_dx/shaders/texture_compare_and_update.comp")};
@@ -33,6 +51,19 @@ std::unique_ptr<BBDX::TextureComparer> BBDX::TextureComparer::create() {
         return nullptr;
     }
     QByteArray shaderSource = shaderFile.readAll();
+
+    const char *formatToken = glslFormatString(textureFormat);
+    QByteArray formatMacro = QByteArray("#define TEXTURE_FORMAT ") + formatToken + "\n";
+
+    // we assume the very first line has the #version
+    // inject our TEXTURE_FORMAT macro after that
+    int secondLine = shaderSource.indexOf("\n");
+    if (secondLine > -1) {
+        shaderSource.insert(secondLine + 1, formatMacro);
+    } else {
+        qCWarning(BBDX_TEXTURE_COMPARER) << "Compute shader template appears to be incomplete";
+        shaderSource.prepend(formatMacro);
+    }
 
     // this process roughly mirrors what KWin does in
     // GLShader::compile()
@@ -65,31 +96,56 @@ std::unique_ptr<BBDX::TextureComparer> BBDX::TextureComparer::create() {
         qCDebug(BBDX_TEXTURE_COMPARER) << "Compute shader compilation log:\n" << log;
     }
 
-    textureComparer->m_computeShader = glCreateProgram();
-    glAttachShader(textureComparer->m_computeShader, shader);
+    auto computeShader = std::make_unique<ComputeShader>();
+    computeShader->program = glCreateProgram();
+    glAttachShader(computeShader->program, shader);
     glDeleteShader(shader);
 
     // now link the program similar to GLShader::link()
-    glLinkProgram(textureComparer->m_computeShader);
+    glLinkProgram(computeShader->program);
 
     // reconfigure log buffer
-    glGetProgramiv(textureComparer->m_computeShader, GL_INFO_LOG_LENGTH, &maxLength);
+    glGetProgramiv(computeShader->program, GL_INFO_LOG_LENGTH, &maxLength);
     log = QByteArray{maxLength, 0};
-    glGetProgramInfoLog(textureComparer->m_computeShader, maxLength, &length, log.data());
+    glGetProgramInfoLog(computeShader->program, maxLength, &length, log.data());
 
     // link status
-    glGetProgramiv(textureComparer->m_computeShader, GL_LINK_STATUS, &status);
+    glGetProgramiv(computeShader->program, GL_LINK_STATUS, &status);
 
     if (status == 0) {
         qCCritical(BBDX_TEXTURE_COMPARER) << "Compute shader linking failed:\n" << log;
-        // ~TextureComparer() handles glDeleteProgram
+        // ~ComputeShader() handles glDeleteProgram
         return nullptr;
     } else {
         qCDebug(BBDX_TEXTURE_COMPARER) << "Compute shader linking log:\n" << log;
     }
 
     // store locations of uniform params
-    textureComparer->m_dirtyRectLocation = glGetUniformLocation(textureComparer->m_computeShader, "u_dirtyRect");
+    computeShader->dirtyRectLocation = glGetUniformLocation(computeShader->program, "u_dirtyRect");
+
+    return computeShader;
+}
+
+std::unique_ptr<BBDX::TextureComparer> BBDX::TextureComparer::create() {
+    auto textureComparer = std::unique_ptr<TextureComparer>(new TextureComparer());
+
+    // for vert+frag just use the KWin helpers
+    textureComparer->m_glueShader = KWin::ShaderManager::instance()->generateShaderFromFile(KWin::ShaderTraits{},
+                                                                           QStringLiteral(":/effects/better_blur_dx/shaders/texture_compare_and_update.vert"),
+                                                                           QStringLiteral(":/effects/better_blur_dx/shaders/texture_compare_and_update.frag"));
+    if (!textureComparer->m_glueShader) {
+        qCWarning(BBDX_TEXTURE_COMPARER) << "Failed to load texture compare glue shaders";
+        return nullptr;
+    }
+
+    // most things are GL_RGBA8 so we'll create that upfront
+    // (and use it as a sanity check for compile issues)
+    auto computeShader = buildComputeShader(GL_RGBA8);
+    if (!computeShader) {
+        qCWarning(BBDX_TEXTURE_COMPARER) << "Failed to load texture compare compute shader";
+        return nullptr;
+    }
+    textureComparer->m_computeShaders.emplace(GL_RGBA8, std::move(computeShader));
 
     // supplementary resources
     glGenBuffers(1, &textureComparer->m_counterBuffer);
@@ -105,11 +161,6 @@ std::unique_ptr<BBDX::TextureComparer> BBDX::TextureComparer::create() {
 }
 
 BBDX::TextureComparer::~TextureComparer() {
-    if (m_computeShader > 0) {
-        glDeleteProgram(m_computeShader);
-        m_computeShader = 0;
-    }
-
     if (m_counterBuffer > 0) {
         glDeleteBuffers(1, &m_counterBuffer);
     }
@@ -119,7 +170,25 @@ BBDX::TextureComparer::~TextureComparer() {
     }
 }
 
-void BBDX::TextureComparer::compareAndUpdate(KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegion) const {
+void BBDX::TextureComparer::compareAndUpdate(KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegion) {
+    const auto textureFormat = freshBlit->internalFormat();
+
+    // lazily create compute shader instances in case we need
+    // them for non GL_RGBA8
+    if (!m_computeShaders.contains(textureFormat)) {
+        // TODO:
+        // it's probably bad if this fails... I'll probably deal with
+        // it later.. maybe...
+        auto newComputeShader = buildComputeShader(textureFormat);
+        if (!newComputeShader) {
+            qCWarning(BBDX_TEXTURE_COMPARER) << "Failed to load texture compare compute shader";
+            return;
+        }
+        m_computeShaders.emplace(textureFormat, std::move(newComputeShader));
+    }
+
+    ComputeShader *computeShader{m_computeShaders.at(textureFormat).get()};
+
     // bind the textures
     // TODO: colorspace might be different
     glBindImageTexture(0, freshBlit->texture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
@@ -133,15 +202,21 @@ void BBDX::TextureComparer::compareAndUpdate(KWin::GLTexture *freshBlit, KWin::G
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, m_counterBuffer);
 
     // prepare compute shader
-    glUseProgram(m_computeShader);
+    GLint prevProgram{};
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+    glUseProgram(computeShader->program);
 
     for (const auto &rect : localDirtyRegion.rects()) {
         // bind dirtyRect
-        glUniform4i(m_dirtyRectLocation, rect.x(), rect.y(), rect.width(), rect.height());
+        glUniform4i(computeShader->dirtyRectLocation, rect.x(), rect.y(), rect.width(), rect.height());
 
         // dispatch in 16x16 workgroup blocks (ceiled, matching compute shader params)
         glDispatchCompute((rect.width() + 15) / 16, (rect.height() + 15) / 16, 1);
     }
+
+    // revert to whatever program was used before
+    // (let's hope this doesn't mess up KWin state)
+    glUseProgram(prevProgram);
 
     // wait for compute to be done, then fire the query
     glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
