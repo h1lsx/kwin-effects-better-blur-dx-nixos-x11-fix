@@ -382,8 +382,6 @@ void BBDX::BlurCache::flushAccumulatedDirtyRegions(KWin::ScreenPrePaintData &dat
                 continue;
             }
 
-            qCDebug(BLUR_CACHE) << "Flushing cache of:" << window->windowClass();
-
             for (const auto &rect : cacheEntry->accumulatedDirtyRegion.rects()) {
                 data.paint |= rect;
             }
