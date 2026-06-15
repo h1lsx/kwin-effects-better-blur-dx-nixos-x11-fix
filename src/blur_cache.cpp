@@ -330,6 +330,7 @@ void BBDX::BlurCache::drawCached(const KWin::RenderViewport &viewport, BBDX::Blu
     KWin::GLTexture* read;
     if (const auto &cacheEntry = renderInfo.cache.get()) {
         read = cacheEntry->cachedTexture.get();
+        cacheEntry->isFlushing = false;
     } else {
         // bail if we didn't select or add a cache entry
         qCritical(BLUR_CACHE) << "drawCached() called without a valid cache entry";
