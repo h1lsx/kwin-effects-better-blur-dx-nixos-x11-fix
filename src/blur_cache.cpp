@@ -379,9 +379,15 @@ void BBDX::BlurCache::drawToCache(BBDX::BlurCacheLRU &cache, KWin::GLVertexBuffe
 void BBDX::BlurCache::flushAccumulatedDirtyRegions(KWin::ScreenPrePaintData &data) const {
     for (auto &[window, effectData] : m_effect->m_windows) {
         for (auto &[view, renderData] : effectData.render) {
+#if defined(BETTERBLUR_X11)
+            if (view != data.screen) {
+                continue;
+            }
+#else
             if (view != data.view) {
                 continue;
             }
+#endif
 
             auto cacheEntry = renderData.cache.get();
             if (!cacheEntry) {
