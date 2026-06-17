@@ -203,8 +203,10 @@ void BBDX::TextureComparer::compareAndUpdate(const WindowData *windowData, KWin:
 
     ComputeShader *computeShader{m_computeShaders.at(textureFormat).get()};
 
+    // ensure blitted texture is complete
+    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+
     // bind the textures
-    // TODO: colorspace might be different
     glBindImageTexture(0, freshBlit->texture(), 0, GL_FALSE, 0, GL_READ_ONLY, textureFormat);
     glBindImageTexture(1, cachedBlit->texture(), 0, GL_FALSE, 0, GL_READ_WRITE, textureFormat);
 
@@ -228,14 +230,9 @@ void BBDX::TextureComparer::compareAndUpdate(const WindowData *windowData, KWin:
         glDispatchCompute((rect.width() + 15) / 16, (rect.height() + 15) / 16, 1);
     }
 
-    // wait for compute to be done, then fire the query
-    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT
-                    | GL_COMMAND_BARRIER_BIT
-                    | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-                    | GL_TEXTURE_FETCH_BARRIER_BIT);
-
 #if defined(BBDX_DEBUG)
     // in debug builds log the changed pixels
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
     GLuint pixelsChanged{0};
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(GLuint), &pixelsChanged);
     if (pixelsChanged > 0) {
@@ -246,6 +243,9 @@ void BBDX::TextureComparer::compareAndUpdate(const WindowData *windowData, KWin:
         }
     }
 #endif
+
+    // ensure SSBO is flushed for query
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     // done with the textures, counterBuffer is still needed by query
     glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA8);
