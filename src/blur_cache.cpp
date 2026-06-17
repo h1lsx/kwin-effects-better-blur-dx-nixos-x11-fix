@@ -7,7 +7,6 @@
 #include "texture_comparer.hpp"
 
 #include <epoxy/gl.h>
-#include <qloggingcategory.h>
 #include <scene/scene.h>
 #include <sys/types.h>
 
@@ -128,7 +127,7 @@ BBDX::BlurCacheEntry* BBDX::BlurCacheLRU::get() {
     return m_entry.get();
 }
 
-const BBDX::TextureComparer::WindowData* BBDX::BlurCacheLRU::textureCompareWindowData() {
+BBDX::TextureComparer::WindowData* BBDX::BlurCacheLRU::textureCompareWindowData() {
     // alloc only happens once per Window+RenderView combination
     if (!m_textureCompareWindowData) [[unlikely]] {
         m_textureCompareWindowData = TextureComparer::WindowData::create();
@@ -305,23 +304,25 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache) {
         return;
     }
 
-    const auto textureCompareWindowData = cache.textureCompareWindowData();
+    auto textureCompareWindowData = cache.textureCompareWindowData();
     if (!textureCompareWindowData) [[unlikely]] {
         // GL resource alloc failed
         return;
     }
 
+    const auto textureCompareWindowDataSlot = textureCompareWindowData->getSlot();
+
     const auto newTexture = m_paintData.blitFramebuffer->colorAttachment();
     const auto cachedTexture = cacheEntry->blitTexture.get();
 
-    m_textureComparer->compareAndUpdate(textureCompareWindowData,
+    m_textureComparer->compareAndUpdate(textureCompareWindowDataSlot,
                                         newTexture,
                                         cachedTexture,
                                         cacheEntry->localDirtyRegionGL(*m_paintData.dirtyRegion),
                                         m_paintData.window);
 
     // await the query from TextureComparer::compareAndUpdate()
-    glBeginConditionalRender(textureCompareWindowData->query, GL_QUERY_BY_REGION_WAIT);
+    glBeginConditionalRender(textureCompareWindowDataSlot.second, GL_QUERY_BY_REGION_WAIT);
     m_paintData.glBeginConditionalRenderCalled = true;
 
     // *if* the texture changed we need to ensure it's fully flushed

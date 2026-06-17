@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <array>
 
 namespace BBDX {
 
@@ -19,20 +20,33 @@ public:
     /**
      * Per Window (BlurCacheLRU) data
      */
-    struct WindowData {
-    private:
+    class WindowData {
+        /**
+         * Amount of slots per window
+         */
+        static constexpr int SLOTS{3};
+
+        /**
+         * Next slot to return
+         */
+        int m_nextSlot{0};
+
+        /**
+         * SSBO counting changed blocks
+         */
+        std::array<GLuint, SLOTS> m_counterBuffers{};
+
+        /**
+         * GL query object used for conditional render
+         */
+        std::array<GLuint, SLOTS> m_queries{};
+
         /**
          * Use create()
          */
         WindowData() = default;
 
     public:
-        // SSBO counting changed blocks
-        GLuint counterBuffer{0};
-
-        // GL query object used for conditional render
-        GLuint query{0};
-
         /**
          * Create WindowData
          * nullptr on error
@@ -43,6 +57,11 @@ public:
          * Cleanup GL resources
          */
         ~WindowData();
+
+        /**
+         * Get a matching {counterBuffer, query} tuple
+         */
+        std::pair<GLuint, GLuint> getSlot();
     };
 
 private:
@@ -91,13 +110,15 @@ public:
      * Compare and update cachedBlit with freshBlit
      * within the localDirtyRegion (in GL coords)
      *
+     * windowDataSlot is a pair as returned by WindowData::getSlot()
+     *
      * The EffectWindow is optional and only used
      * for extra logging in the debug build (BBDX_DEBUG)
      *
      * The result of the comparison can be found using the
      * query object returned by queryObject()
      */
-    void compareAndUpdate(const WindowData *windowData, KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegionGL, const KWin::EffectWindow *window = nullptr);
+    void compareAndUpdate(const std::pair<GLuint, GLuint> &windowDataSlot, KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegionGL, const KWin::EffectWindow *window = nullptr);
 };
 
 }

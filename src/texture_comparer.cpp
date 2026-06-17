@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <array>
 
 Q_LOGGING_CATEGORY(BBDX_TEXTURE_COMPARER, "kwin_effect_better_blur_dx.texture_comparer", QtInfoMsg)
 
@@ -48,28 +49,34 @@ static inline const char* glslFormatString(GLenum internalFormat) {
 std::unique_ptr<BBDX::TextureComparer::WindowData> BBDX::TextureComparer::WindowData::create() {
     std::unique_ptr<WindowData> windowData{new WindowData{}};
 
-    glGenBuffers(1, &windowData->counterBuffer);
+    glGenBuffers(SLOTS, windowData->m_counterBuffers.data());
+    glGenQueries(SLOTS, windowData->m_queries.data());
 
     // allocate a single GLuint (the change counter)
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, windowData->counterBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint), nullptr, GL_DYNAMIC_DRAW);
+    for (const auto &buffer : windowData->m_counterBuffers) {
+        glBindBuffer(GL_SHADER_STORAGE_BUFFER, buffer);
+        glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(GLuint), nullptr, GL_DYNAMIC_DRAW);
+    }
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-
-    glGenQueries(1, &windowData->query);
 
     return windowData;
 }
 
 BBDX::TextureComparer::WindowData::~WindowData() {
-    if (counterBuffer > 0) {
-        glDeleteBuffers(1, &counterBuffer);
-    }
-
-    if (query > 0) {
-        glDeleteQueries(1, &query);
-    }
+    glDeleteBuffers(SLOTS, m_counterBuffers.data());
+    glDeleteQueries(SLOTS, m_queries.data());
 }
 
+
+std::pair<GLuint, GLuint> BBDX::TextureComparer::WindowData::getSlot() {
+    const int slot = m_nextSlot;
+
+    if (++m_nextSlot >= SLOTS) {
+        m_nextSlot = 0;
+    }
+
+    return {m_counterBuffers[slot], m_queries[slot]};
+}
 
 std::unique_ptr<BBDX::TextureComparer::ComputeShader> BBDX::TextureComparer::buildComputeShader(GLenum textureFormat) {
     qCDebug(BBDX_TEXTURE_COMPARER) << "Creating texture compare instance for" << glslFormatString(textureFormat);
@@ -180,10 +187,13 @@ std::unique_ptr<BBDX::TextureComparer> BBDX::TextureComparer::create() {
     return textureComparer;
 }
 
-void BBDX::TextureComparer::compareAndUpdate(const WindowData *windowData, KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegionGL, const KWin::EffectWindow *window) {
+void BBDX::TextureComparer::compareAndUpdate(const std::pair<GLuint, GLuint> &windowDataSlot, KWin::GLTexture *freshBlit, KWin::GLTexture *cachedBlit, const KWin::Region &localDirtyRegionGL, const KWin::EffectWindow *window) {
 #if !defined(BBDX_DEBUG)
     Q_UNUSED(window);
 #endif
+
+    const GLuint counterBuffer{windowDataSlot.first};
+    const GLuint query{windowDataSlot.second};
 
     const auto textureFormat = freshBlit->internalFormat();
 
@@ -212,10 +222,10 @@ void BBDX::TextureComparer::compareAndUpdate(const WindowData *windowData, KWin:
 
     // reset and bind counter
     const GLuint zero = 0;
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, windowData->counterBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, counterBuffer);
     glClearBufferSubData(GL_SHADER_STORAGE_BUFFER, GL_R32UI, 0, sizeof(GLuint), GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
     // slot 2 - matching compute shader
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, windowData->counterBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, counterBuffer);
 
     // prepare compute shader
     GLint prevProgram{};
@@ -262,7 +272,7 @@ void BBDX::TextureComparer::compareAndUpdate(const WindowData *windowData, KWin:
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glDepthMask(GL_FALSE);
 
-    glBeginQuery(GL_ANY_SAMPLES_PASSED, windowData->query);
+    glBeginQuery(GL_ANY_SAMPLES_PASSED, query);
     glDrawArrays(GL_POINTS, 0, 1);
     glEndQuery(GL_ANY_SAMPLES_PASSED);
 

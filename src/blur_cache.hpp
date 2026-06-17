@@ -128,7 +128,7 @@ public:
      * Return const pointer to the contained texture compare
      * region and lazily create it if needed
      */
-    const TextureComparer::WindowData* textureCompareWindowData();
+    TextureComparer::WindowData* textureCompareWindowData();
 
     /**
      * Add an entry to the cache, potentially removing the already existing entry.
