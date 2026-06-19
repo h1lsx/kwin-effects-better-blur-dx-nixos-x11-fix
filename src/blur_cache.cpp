@@ -346,9 +346,6 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache) {
     // await the query from TextureComparer::compareAndUpdate()
     glBeginConditionalRender(textureCompareWindowDataSlot->second, GL_QUERY_BY_REGION_WAIT);
     m_paintData.glBeginConditionalRenderCalled = true;
-
-    // *if* the texture changed we need to ensure it's fully flushed
-    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 void BBDX::BlurCache::drawCached(const KWin::RenderViewport &viewport, BBDX::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo, const int vertexCount, const float modulation) const {

@@ -386,5 +386,9 @@ std::expected<void, BBDX::TextureComparer::Error> BBDX::TextureComparer::compare
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, 0);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
+    // if the texture changed we need to ensure it's fully flushed
+    // if nothing changed this flush is pretty much free anyways
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+
     return {};
 }
