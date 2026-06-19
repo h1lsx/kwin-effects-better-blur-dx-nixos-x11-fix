@@ -605,16 +605,31 @@ bool BlurEffect::enabledByDefault()
 bool BlurEffect::supported()
 {
     const auto context = effects->openglContext();
-    if (!context) return false;
+    if (!context) {
+        qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Effect unsupported: No OpenGL context";
+        return false;
+    }
 
     // we require GL 4.3 or GLES 3.1
     if (context->isOpenGLES()) {
-        if (!context->hasVersion(Version(3, 1))) return false;
+        if (!context->hasVersion(Version(3, 1))) {
+            qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Effect unsupported: No OpenGL ES < 3.1";
+            return false;
+        }
     } else {
-        if (!context->hasVersion(Version(4, 3))) return false;
+        if (!context->hasVersion(Version(4, 3))) {
+            qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Effect unsupported: No OpenGL < 4.3";
+            return false;
+        }
     }
 
-    return effects->isOpenGLCompositing();
+    if (!effects->isOpenGLCompositing()) {
+        qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Effect unsupported: No OpenGL compositing";
+        return false;
+    }
+
+    qCInfo(KWIN_BLUR) << BBDX::LOG_PREFIX << "Effect supported";
+    return true;
 }
 
 bool BlurEffect::decorationSupportsBlurBehind(const EffectWindow *w) const
