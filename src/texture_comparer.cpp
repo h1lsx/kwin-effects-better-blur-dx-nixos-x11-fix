@@ -266,14 +266,14 @@ void BBDX::TextureComparer::compareAndUpdate(const std::pair<GLuint, GLuint> &wi
     glBufferData(GL_SHADER_STORAGE_BUFFER, glDirtyRegion.size() * sizeof(ComputeShaderRect), glDirtyRegion.data(), GL_STREAM_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, computeShader->dirtyRegionBuffer);
 
-    const auto boundingBox = localDirtyRegionGL.boundingRect();
-    glUniform1i(computeShader->dirtyRegionRectCountLocation, glDirtyRegion.size());
-    glUniform4i(computeShader->dirtyRegionBoundingBoxLocation, boundingBox.left(), boundingBox.right(), boundingBox.top(), boundingBox.bottom());
-
     // prepare compute shader
     GLint prevProgram{};
     glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
     glUseProgram(computeShader->program);
+
+    const auto boundingBox = localDirtyRegionGL.boundingRect();
+    glUniform1i(computeShader->dirtyRegionRectCountLocation, glDirtyRegion.size());
+    glUniform4i(computeShader->dirtyRegionBoundingBoxLocation, boundingBox.left(), boundingBox.right(), boundingBox.top(), boundingBox.bottom());
 
     // dispatch in 16x16 workgroup blocks (ceiled, matching compute shader params)
     glDispatchCompute((boundingBox.width() + 15) / 16, (boundingBox.height() + 15) / 16, 1);
