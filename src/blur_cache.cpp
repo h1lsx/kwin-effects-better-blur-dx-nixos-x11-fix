@@ -315,6 +315,10 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache) {
             return;
         }
 
+        // flush the new entry immediately
+        // bypassing texture compare
+        newCacheEntry->flush();
+
         cache.add(std::move(newCacheEntry));
 
         return;
