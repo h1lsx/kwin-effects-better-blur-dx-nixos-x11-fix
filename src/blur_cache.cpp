@@ -109,6 +109,16 @@ void BBDX::BlurCacheEntry::flush() {
     isFlushing = true;
 }
 
+
+void BBDX::BlurCacheEntry::abortFlush(const char* msg) {
+    if (isFlushing) {
+        isFlushing = false;
+        if (msg) {
+            qCDebug(BLUR_CACHE) << "Aborted flush:" << msg;
+        }
+    }
+}
+
 void BBDX::BlurCacheEntry::flushed() {
     if (isFlushing) {
         accumulatedDirtyRegion = KWin::Region{};
@@ -225,8 +235,7 @@ void BBDX::BlurCache::preparePaintData(const KWin::RenderView *view,
         // but if it is a flush would always end up taking the cache anyway
         // (no changes to compare). this at least skips some compute
         if (dirtyRegion->isEmpty() && cacheEntry->isFlushing) {
-            cacheEntry->isFlushing = false;
-            qCDebug(BLUR_CACHE) << "Empty dirtyRegion - aborting cache flush";
+            cacheEntry->abortFlush("Empty dirtyRegion");
         }
     }
 }
@@ -316,8 +325,7 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache) {
     if (!textureCompareWindowDataSlot) {
         // we didn't get a slot (meaning all queries are busy)
         // abort this flush
-        qCWarning(BLUR_CACHE) << "All queries busy - aborting cache flush";
-        cacheEntry->isFlushing = false;
+        cacheEntry->abortFlush("All queries busy");
         return;
     }
 
@@ -331,7 +339,7 @@ void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache) {
 
     // something went wrong
     if (!ret) {
-        cacheEntry->isFlushing = false;
+        cacheEntry->abortFlush("TextureComparer::compareAndUpdate() failed");
         return;
     }
 
