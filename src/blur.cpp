@@ -1050,6 +1050,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
         renderInfo.framebuffers[0]->blitFromRenderTarget(renderTarget, viewport, dirtyRect, dirtyRect.translated(-backgroundRect.topLeft()));
     }
 #else
+    // BBDX: prepare cache, bail if there is no cache entry
     m_blurCache->preparePaintData(&renderTarget,
                                   &viewport,
                                   m_currentView,
@@ -1059,6 +1060,11 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
                                   &backgroundRect,
                                   &scaledBackgroundRect,
                                   renderInfo.cache);
+
+    if (!renderInfo.cache.get()) {
+        qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Bailing due to missing cache entry";
+        return;
+    }
 #endif
 
     // Upload the geometry: the first 6 vertices are used when downsampling and upsampling offscreen,
@@ -1167,13 +1173,6 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
     }
 
     vbo->bindArrays();
-
-    // BBDX: prepare cache, bail if there is no cache entry
-    m_blurCache->prepareCache(renderInfo.cache);
-    if (!renderInfo.cache.get()) {
-        qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Bailing due to missing cache entry";
-        return;
-    }
 
     // BBDX: rate limited
     if (!renderInfo.cache.get()->isFlushing) {

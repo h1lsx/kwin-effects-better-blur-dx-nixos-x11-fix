@@ -260,31 +260,46 @@ void BBDX::BlurCache::preparePaintData(const KWin::RenderTarget *renderTarget,
         .glBeginConditionalRenderCalled = false,
     };
 
+    // create new cache entry if needed
+    if (!cache.get()) {
+
+        auto newCacheEntry = BBDX::BlurCacheEntry::create(*m_paintData.scaledBackgroundRect,
+                                                          m_paintData.blitFramebuffer,
+                                                          *m_paintData.dirtyRegion,
+                                                          *m_paintData.backgroundRect);
+        // XXX: ensure this is safe
+        // and BlurEffect::blur() bails
+        // if this fails or we get nullptr derefs when trying to
+        // access blit/target framebuffers
+        if (!newCacheEntry) {
+            qCWarning(BLUR_CACHE) << BBDX::LOG_PREFIX << "Creating BlurCacheEntry failed";
+            return;
+        }
+
+        // flush the new entry immediately
+        newCacheEntry->flush();
+
+        cache.add(std::move(newCacheEntry));
+    }
+
+    // by now we are guaranteed to have an entry
+    auto cacheEntry = cache.get();
+
     // the cache entry needs to stay in sync
     // so BlurCacheEntry::localDirtyRegion() returns
     // correct info
-    if (auto cacheEntry = cache.get()) {
-        cacheEntry->backgroundRect = *backgroundRect;
-        cacheEntry->accumulateDirtyRegion(*dirtyRegion);
+    cacheEntry->backgroundRect = *backgroundRect;
+    cacheEntry->accumulateDirtyRegion(*dirtyRegion);
 
-        // still not sure if dirtyRegion can even end up empty
-        // but if it is a flush would always end up taking the cache anyway
-        // (no changes to compare). this at least skips some compute
-        if (dirtyRegion->isEmpty() && cacheEntry->isFlushing) {
-            cacheEntry->abortFlush("Empty dirtyRegion");
-        }
+    // still not sure if dirtyRegion can even end up empty
+    // but if it is a flush would always end up taking the cache anyway
+    // (no changes to compare). this at least skips some compute
+    if (dirtyRegion->isEmpty() && cacheEntry->isFlushing) {
+        cacheEntry->abortFlush("Empty dirtyRegion");
+    }
 
-        // when flushing we need the updated blit
-        if (cacheEntry->isFlushing) {
-            updateBlitFramebuffer(*m_paintData.renderTarget,
-                                  *m_paintData.viewport,
-                                  m_paintData.blitFramebuffer,
-                                  *m_paintData.dirtyRegion,
-                                  *m_paintData.backgroundRect);
-        }
-    } else {
-        // without a cache entry we need a blit
-        // to create one
+    // when flushing we need the updated blit
+    if (cacheEntry->isFlushing) {
         updateBlitFramebuffer(*m_paintData.renderTarget,
                               *m_paintData.viewport,
                               m_paintData.blitFramebuffer,
@@ -339,84 +354,6 @@ void BBDX::BlurCache::setupVBO(std::span<KWin::GLVertex2D> &map, size_t &vboInde
             .texcoord = QVector2D(u1, v1),
         };
     }
-}
-
-void BBDX::BlurCache::prepareCache(BBDX::BlurCacheLRU &cache) {
-    // if we don't have an entry create one and bail to fill it
-    auto cacheEntry = cache.get();
-    if (!cacheEntry) {
-        auto newCacheEntry = BBDX::BlurCacheEntry::create(*m_paintData.scaledBackgroundRect,
-                                                          m_paintData.blitFramebuffer,
-                                                          *m_paintData.dirtyRegion,
-                                                          *m_paintData.backgroundRect);
-        // XXX: ensure this is safe
-        // and BlurEffect::blur() bails
-        // if this fails or we get nullptr derefs when trying to
-        // access blit/target framebuffers
-        if (!newCacheEntry) {
-            qCWarning(BLUR_CACHE) << BBDX::LOG_PREFIX << "Creating BlurCacheEntry failed";
-            return;
-        }
-
-        // flush the new entry immediately
-        // bypassing texture compare
-        newCacheEntry->flush();
-
-        cache.add(std::move(newCacheEntry));
-
-        return;
-    }
-
-    // only proceed if marked in flushAccumulatedDirtyRegions()
-    if (!cacheEntry->isFlushing) {
-        return;
-    }
-
-    
-    /*
-     * TODO: texture compare seems to be broken on some GPUs
-     * (AMD RDNA2 was reported the most) so skip it for now
-     * and just force a blur refresh
-     */
-    KWin::GLFramebuffer::pushFramebuffer(m_paintData.blitFramebuffer);
-    for (const auto &rect : cacheEntry->localDirtyRegion(*m_paintData.dirtyRegion).rects()) {
-        cacheEntry->blitFramebuffer->blitFromFramebuffer(rect, rect, GL_NEAREST);
-    }
-    KWin::GLFramebuffer::popFramebuffer();
-
-    /*
-    auto textureCompareWindowData = cache.textureCompareWindowData();
-    if (!textureCompareWindowData) [[unlikely]] {
-        // GL resource alloc failed
-        return;
-    }
-
-    const auto textureCompareWindowDataSlot = textureCompareWindowData->getSlot();
-    if (!textureCompareWindowDataSlot) {
-        // we didn't get a slot (meaning all queries are busy)
-        // abort this flush
-        cacheEntry->abortFlush("All queries busy");
-        return;
-    }
-
-    const auto newTexture = m_paintData.blitFramebuffer->colorAttachment();
-    const auto cachedTexture = cacheEntry->blitTexture.get();
-
-    const auto ret = m_textureComparer->compareAndUpdate(*textureCompareWindowDataSlot,
-                                                         newTexture,
-                                                         cachedTexture,
-                                                         m_paintData);
-
-    // something went wrong
-    if (!ret) {
-        cacheEntry->abortFlush("TextureComparer::compareAndUpdate() failed");
-        return;
-    }
-
-    // await the query from TextureComparer::compareAndUpdate()
-    glBeginConditionalRender(textureCompareWindowDataSlot->second, GL_QUERY_BY_REGION_WAIT);
-    m_paintData.glBeginConditionalRenderCalled = true;
-    */
 }
 
 void BBDX::BlurCache::drawCached(const KWin::RenderViewport &viewport, BBDX::BlurRenderData &renderInfo, KWin::GLVertexBuffer *vbo, const int vertexCount, const float modulation) const {

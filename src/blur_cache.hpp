@@ -231,17 +231,7 @@ public:
     uint vboStartScreen() const { return vboStartCache() + vboCountCache(); }
 
     /**
-     * Set up query and call glBeginConditionalRender
-     *
-     * Should be called after VBO was bound
-     *
-     * The regular blur passes should happen between this and
-     * BlurCached::rawCached()
-     */
-    void prepareCache(BlurCacheLRU &cache);
-
-    /**
-     * Call glEndConditionalRender and draw the cached texture
+     * Call draw the cached texture
      *
      * Should be called at the very end of the blur passes
      */
