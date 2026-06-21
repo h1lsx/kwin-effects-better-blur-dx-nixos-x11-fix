@@ -59,9 +59,10 @@ std::unique_ptr<BBDX::BlurCacheEntry> BBDX::BlurCacheEntry::create(const KWin::R
         entry->m_windowPID = window->pid();
     }
 
-    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "Creating BlurCacheEntry:" << entry->m_windowClass << "\n"
-                                            << "PID:" << entry->m_windowPID << "\n"
-                                            << "Size:" << scaledBackgroundRect;
+    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
+                        << "Creating BlurCacheEntry:" << entry->m_windowClass << "\n"
+                        << "PID:" << entry->m_windowPID << "\n"
+                        << "Size:" << scaledBackgroundRect;
 
     // allocate new cached texture + framebuffer for the blurred texture
     glClearColor(0, 0, 0, 0);
@@ -103,7 +104,8 @@ void BBDX::BlurCacheEntry::abortFlush(const char *msg) {
     if (m_isFlushing) {
         m_isFlushing = false;
         if (msg) {
-            qCDebug(BLUR_CACHE) << "Aborted flush:" << m_windowClass << "\n"
+            qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
+                                << "Aborted flush:" << m_windowClass << "\n"
                                 << "PID:" << m_windowPID << "\n"
                                 << "Reason:" << msg;
         }
@@ -122,7 +124,8 @@ void BBDX::BlurCacheEntry::invalidate(const char* msg) {
     if (!m_invalidated) {
         m_invalidated = true;
         if (msg) {
-            qCDebug(BLUR_CACHE) << "Invalidated cache:" << m_windowClass << "\n"
+            qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX
+                                << "Invalidated cache:" << m_windowClass << "\n"
                                 << "PID:" << m_windowPID << "\n"
                                 << "Reason:" << msg;
         }
@@ -268,7 +271,7 @@ void BBDX::BlurCache::drawCached(const KWin::RenderViewport &viewport, BBDX::Blu
         cacheEntry->flushed();
     } else {
         // bail if we didn't select or add a cache entry
-        qCritical(BLUR_CACHE) << "drawCached() called without a valid cache entry";
+        qCritical(BLUR_CACHE) << BBDX::LOG_PREFIX << "drawCached() called without a valid cache entry";
         KWin::ShaderManager::instance()->popShader();
         return;
     }
