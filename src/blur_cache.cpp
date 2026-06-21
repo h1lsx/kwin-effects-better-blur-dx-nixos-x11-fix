@@ -33,6 +33,23 @@
 Q_LOGGING_CATEGORY(BLUR_CACHE, "kwin_effect_better_blur_dx.blur_cache", QtInfoMsg)
 
 
+/**
+ * Update the cached blit texture in blitFramebuffer
+ * with contents of the given dirtyRegion
+ */
+static inline void updateBlitFramebuffer(const KWin::RenderTarget &renderTarget,
+                                         const KWin::RenderViewport &viewport,
+                                         KWin::GLFramebuffer *blitFramebuffer,
+                                         const KWin::Region &dirtyRegion,
+                                         const KWin::Rect &backgroundRect) {
+    for (const auto &rect : dirtyRegion.rects()) {
+        blitFramebuffer->blitFromRenderTarget(renderTarget,
+                                              viewport,
+                                              rect,
+                                              rect.translated(-backgroundRect.topLeft()));
+    }
+}
+
 std::unique_ptr<BBDX::BlurCacheEntry> BBDX::BlurCacheEntry::create(const KWin::Rect &scaledBackgroundRect,
                                                                    KWin::GLFramebuffer *dirtyBlitFramebuffer,
                                                                    KWin::Region dirtyRegion,
@@ -256,6 +273,23 @@ void BBDX::BlurCache::preparePaintData(const KWin::RenderTarget *renderTarget,
         if (dirtyRegion->isEmpty() && cacheEntry->isFlushing) {
             cacheEntry->abortFlush("Empty dirtyRegion");
         }
+
+        // when flushing we need the updated blit
+        if (cacheEntry->isFlushing) {
+            updateBlitFramebuffer(*m_paintData.renderTarget,
+                                  *m_paintData.viewport,
+                                  m_paintData.blitFramebuffer,
+                                  *m_paintData.dirtyRegion,
+                                  *m_paintData.backgroundRect);
+        }
+    } else {
+        // without a cache entry we need a blit
+        // to create one
+        updateBlitFramebuffer(*m_paintData.renderTarget,
+                              *m_paintData.viewport,
+                              m_paintData.blitFramebuffer,
+                              *m_paintData.dirtyRegion,
+                              *m_paintData.backgroundRect);
     }
 }
 
