@@ -205,8 +205,9 @@ BlurEffect::BlurEffect()
         qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Failed to create BlurCache";
         return;
 
-    m_refractionPass = std::make_unique<BBDX::RefractionPass>();
-    if (!m_refractionPass->ready())
+    m_refractionPass = BBDX::RefractionPass::create();
+    if (!m_refractionPass)
+        qCWarning(KWIN_BLUR) << BBDX::LOG_PREFIX << "Failed to create RefractionPass";
         return;
 
     m_roundedCornersPass = BBDX::RoundedCornersPass::create();

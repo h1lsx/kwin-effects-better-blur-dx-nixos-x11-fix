@@ -40,21 +40,18 @@ private:
     int m_textureRepeatMode{};
     int m_mode{};
 
+    RefractionPass() = default;
+
 public:
     /**
      * Loads required shaders and sets up shader uniformLocations
      */
-    explicit RefractionPass();
+    static std::unique_ptr<RefractionPass> create();
 
     /**
      * reconfigure from BlurConfig
      */
     void reconfigure();
-
-    /**
-     * Check if pass is ready i.e. all shaders loaded
-     */
-    bool ready() const { return !!m_shader; }
 
     /**
      * Check if refraction pass is enabled

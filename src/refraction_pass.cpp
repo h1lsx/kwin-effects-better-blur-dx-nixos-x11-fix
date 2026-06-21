@@ -2,6 +2,7 @@
 #include "refraction_pass.hpp"
 #include "utils.h"
 
+#include <memory>
 #include <opengl/glshader.h>
 #include <opengl/glshadermanager.h>
 
@@ -12,36 +13,40 @@
 
 Q_LOGGING_CATEGORY(REFRACTION_PASS, "kwin_effect_better_blur_dx.refraction_pass", QtInfoMsg)
 
-BBDX::RefractionPass::RefractionPass() {
+std::unique_ptr<BBDX::RefractionPass> BBDX::RefractionPass::create() {
     // The vertex shaders should always be the one of the
     // respective contrast pass.
     // The refraction uses a modified version of
     // the contrast fragment shader.
 
-    m_shader = KWin::ShaderManager::instance()->generateShaderFromFile(
+    std::unique_ptr<RefractionPass> pass{new RefractionPass};
+
+    pass->m_shader = KWin::ShaderManager::instance()->generateShaderFromFile(
             KWin::ShaderTrait::MapTexture,
             QStringLiteral(":/effects/better_blur_dx/shaders/vertex.vert"),
             QStringLiteral(":/effects/better_blur_dx/shaders/refraction.frag"));
 
-    if (!m_shader) {
+    if (!pass->m_shader) {
         qCWarning(REFRACTION_PASS) << BBDX::LOG_PREFIX << "Failed to load refraction pass shader";
-        return;
+        return nullptr;
     } else {
         // contrast parameters
-        m_mvpMatrixLocation = m_shader->uniformLocation("modelViewProjectionMatrix");
-        m_colorMatrixLocation = m_shader->uniformLocation("colorMatrix");
-        m_offsetLocation = m_shader->uniformLocation("offset");
-        m_halfpixelLocation = m_shader->uniformLocation("halfpixel");
+        pass->m_mvpMatrixLocation = pass->m_shader->uniformLocation("modelViewProjectionMatrix");
+        pass->m_colorMatrixLocation = pass->m_shader->uniformLocation("colorMatrix");
+        pass->m_offsetLocation = pass->m_shader->uniformLocation("offset");
+        pass->m_halfpixelLocation = pass->m_shader->uniformLocation("halfpixel");
         // refraction parameters
-        m_refractionRectSizeLocation = m_shader->uniformLocation("refractionRectSize");
-        m_refractionEdgeSizePixelsLocation = m_shader->uniformLocation("refractionEdgeSizePixels");
-        m_refractionCornerRadiusPixelsLocation = m_shader->uniformLocation("refractionCornerRadiusPixels");
-        m_refractionStrengthLocation = m_shader->uniformLocation("refractionStrength");
-        m_refractionNormalPowLocation = m_shader->uniformLocation("refractionNormalPow");
-        m_refractionRGBFringingLocation = m_shader->uniformLocation("refractionRGBFringing");
-        m_refractionTextureRepeatModeLocation = m_shader->uniformLocation("refractionTextureRepeatMode");
-        m_refractionModeLocation = m_shader->uniformLocation("refractionMode");
+        pass->m_refractionRectSizeLocation = pass->m_shader->uniformLocation("refractionRectSize");
+        pass->m_refractionEdgeSizePixelsLocation = pass->m_shader->uniformLocation("refractionEdgeSizePixels");
+        pass->m_refractionCornerRadiusPixelsLocation = pass->m_shader->uniformLocation("refractionCornerRadiusPixels");
+        pass->m_refractionStrengthLocation = pass->m_shader->uniformLocation("refractionStrength");
+        pass->m_refractionNormalPowLocation = pass->m_shader->uniformLocation("refractionNormalPow");
+        pass->m_refractionRGBFringingLocation = pass->m_shader->uniformLocation("refractionRGBFringing");
+        pass->m_refractionTextureRepeatModeLocation = pass->m_shader->uniformLocation("refractionTextureRepeatMode");
+        pass->m_refractionModeLocation = pass->m_shader->uniformLocation("refractionMode");
     }
+
+    return pass;
 }
 
 void BBDX::RefractionPass::reconfigure() {
