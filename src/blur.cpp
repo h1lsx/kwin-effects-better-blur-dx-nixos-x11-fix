@@ -1194,11 +1194,7 @@ void BlurEffect::blur(const RenderTarget &renderTarget, const RenderViewport &vi
         for (size_t i = 1; i < renderInfo.framebuffers.size(); ++i) {
             // BBDX: read the blit from cache entry
             const GLFramebuffer *read;
-            if (i == 1) {
-                read = renderInfo.cache.get()->blitFramebuffer.get();
-            } else {
-                read = renderInfo.framebuffers[i - 1].get();
-            }
+            read = renderInfo.framebuffers[i - 1].get();
             const auto &draw = renderInfo.framebuffers[i];
 
             const QVector2D halfpixel(0.5 / read->colorAttachment()->width(),

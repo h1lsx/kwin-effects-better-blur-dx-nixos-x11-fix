@@ -40,11 +40,6 @@ struct BlurCacheEntry {
     std::unique_ptr<KWin::GLTexture> cachedTexture{nullptr};
     std::unique_ptr<KWin::GLFramebuffer> cachedFramebuffer{nullptr};
 
-    // texture of the previous "raw" pixels (blit grabbed from scene)
-    // used to create this cache entry
-    std::unique_ptr<KWin::GLTexture> blitTexture{nullptr};
-    std::unique_ptr<KWin::GLFramebuffer> blitFramebuffer{nullptr};
-
     /**
      * backgroundRect behind this cache entry
      * updated by BlurCache::preparePaintData()
@@ -70,11 +65,10 @@ struct BlurCacheEntry {
 
     /**
      * Create a new BlurCacheEntry by allocating cachedTexture and cachedFramebuffer
+     * with the size of scaledBackgroundRect and format of dirtyBlitFramebuffer
      */
     static std::unique_ptr<BlurCacheEntry> create(const KWin::Rect &scaledBackgroundRect,
-                                                  KWin::GLFramebuffer *dirtyBlitFramebuffer,
-                                                  KWin::Region dirtyRegion,
-                                                  KWin::Rect backgroundRect);
+                                                  const KWin::GLFramebuffer *dirtyBlitFramebuffer);
 
     /**
      * Add dirtyRegion to accumulatedDirtyRegion

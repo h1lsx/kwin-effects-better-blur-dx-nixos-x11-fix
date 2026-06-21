@@ -59,7 +59,7 @@ void BBDX::RoundedCornersPass::apply(const KWin::BorderRadius &cornerRadius,
         projectionMatrix.ortho(QRectF(0.0, 0.0, scaledBackgroundRect.width(), scaledBackgroundRect.height()));
 
         // should contain the raw un-blurred pixels
-        const auto &read = renderInfo.cache.get()->blitFramebuffer;
+        const auto &read = renderInfo.framebuffers[0];
 
         const KWin::RectF transformedRect = KWin::RectF{
             w->frameGeometry().x() + data.xTranslation(),

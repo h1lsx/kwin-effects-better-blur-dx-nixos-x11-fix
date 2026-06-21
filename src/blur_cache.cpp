@@ -51,11 +51,10 @@ static inline void updateBlitFramebuffer(const KWin::RenderTarget &renderTarget,
 }
 
 std::unique_ptr<BBDX::BlurCacheEntry> BBDX::BlurCacheEntry::create(const KWin::Rect &scaledBackgroundRect,
-                                                                   KWin::GLFramebuffer *dirtyBlitFramebuffer,
-                                                                   KWin::Region dirtyRegion,
-                                                                   KWin::Rect backgroundRect) {
+                                                                   const KWin::GLFramebuffer *dirtyBlitFramebuffer) {
+    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "New BlurCacheEntry with size:" << scaledBackgroundRect;
+
     auto entry = std::make_unique<BBDX::BlurCacheEntry>();
-    entry->backgroundRect = backgroundRect;
 
     // allocate new cached texture + framebuffer for the blurred texture
     glClearColor(0, 0, 0, 0);
@@ -75,46 +74,6 @@ std::unique_ptr<BBDX::BlurCacheEntry> BBDX::BlurCacheEntry::create(const KWin::R
     KWin::GLFramebuffer::pushFramebuffer(entry->cachedFramebuffer.get());
     glClear(GL_COLOR_BUFFER_BIT);
     KWin::GLFramebuffer::popFramebuffer();
-
-    // allocate new cached texture + framebuffer for the raw blit texture
-    KWin::GLTexture *dirtyTexture = dirtyBlitFramebuffer->colorAttachment();
-
-    entry->blitTexture = KWin::GLTexture::allocate(dirtyTexture->internalFormat(), dirtyTexture->size());
-    if (!entry->blitTexture) {
-        qCWarning(BLUR_CACHE) << BBDX::LOG_PREFIX << "Failed to allocate an offscreen texture";
-        return nullptr;
-    }
-    entry->blitTexture->setFilter(GL_LINEAR);
-    entry->blitTexture->setWrapMode(GL_CLAMP_TO_EDGE);
-
-    // just in case KWin does something funky and gives us a
-    // (incomplete) glTexImage2D instead of a (complete) glTexStorage2D
-    // we need to make it "complete" by marking level 0 as the only available level
-    // else glBindImageTexture can't use it in image load/store contexts
-    // https://wikis.khronos.org/opengl/Texture#Texture_completeness
-    entry->blitTexture->bind();
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    entry->blitTexture->unbind();
-
-    entry->blitFramebuffer = std::make_unique<KWin::GLFramebuffer>(entry->blitTexture.get());
-    if (!entry->blitFramebuffer->valid()) {
-        qCWarning(BLUR_CACHE) << BBDX::LOG_PREFIX << "Failed to create an offscreen framebuffer";
-        return nullptr;
-    }
-    KWin::GLFramebuffer::pushFramebuffer(entry->blitFramebuffer.get());
-    glClear(GL_COLOR_BUFFER_BIT);
-    KWin::GLFramebuffer::popFramebuffer();
-
-    // copy data from dirtyRegion
-    KWin::GLFramebuffer::pushFramebuffer(dirtyBlitFramebuffer);
-    for (const auto &rect : entry->localDirtyRegion(dirtyRegion).rects()) {
-        entry->blitFramebuffer->blitFromFramebuffer(rect, rect);
-    }
-    KWin::GLFramebuffer::popFramebuffer();
-
-    qCDebug(BLUR_CACHE) << BBDX::LOG_PREFIX << "New BlurCacheEntry:\n"
-                                            << "dirtyRegion:" << dirtyRegion;
 
     return entry;
 }
@@ -262,11 +221,8 @@ void BBDX::BlurCache::preparePaintData(const KWin::RenderTarget *renderTarget,
 
     // create new cache entry if needed
     if (!cache.get()) {
-
         auto newCacheEntry = BBDX::BlurCacheEntry::create(*m_paintData.scaledBackgroundRect,
-                                                          m_paintData.blitFramebuffer,
-                                                          *m_paintData.dirtyRegion,
-                                                          *m_paintData.backgroundRect);
+                                                          m_paintData.blitFramebuffer);
         // XXX: ensure this is safe
         // and BlurEffect::blur() bails
         // if this fails or we get nullptr derefs when trying to
